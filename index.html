@@ -1,0 +1,2031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1C1C1C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>ForestWatch - Wildfire Situational Awareness</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+:root {
+  --orange: #D4702A;
+  --orange-light: #E8934F;
+  --orange-dark: #B85D1F;
+  --black: #1C1C1C;
+  --black-soft: #2A2A2A;
+  --forest: #2E5E3E;
+  --forest-light: #3D7A51;
+  --forest-dark: #1E4029;
+  --cream: #FDF5E6;
+  --cream-dark: #F0E6D0;
+  --cream-darker: #E0D4BE;
+  --red-flag: #CC2233;
+  --red-flag-bg: #FDE8EB;
+  --pal-a: #4A9E6B;
+  --pal-b: #7AB648;
+  --pal-c: #E8C841;
+  --pal-d: #E8853A;
+  --pal-e: #CC2233;
+  --shadow: 0 2px 8px rgba(28,28,28,0.12);
+  --shadow-lg: 0 4px 16px rgba(28,28,28,0.18);
+  --radius: 10px;
+  --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body {
+  height:100%;
+  font-family: var(--font);
+  background: var(--cream);
+  color: var(--black);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* HEADER */
+.header {
+  background: var(--black);
+  color: var(--cream);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: var(--shadow-lg);
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.header-logo {
+  width: 32px;
+  height: 32px;
+  background: var(--orange);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+.header-title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.header-subtitle {
+  font-size: 11px;
+  color: var(--cream-darker);
+  font-weight: 400;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* PRO MODE TOGGLE */
+.toggle-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--cream-dark);
+}
+.toggle {
+  width: 44px;
+  height: 24px;
+  background: var(--black-soft);
+  border: 2px solid var(--cream-darker);
+  border-radius: 12px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.3s;
+}
+.toggle.active {
+  background: var(--forest);
+  border-color: var(--forest-light);
+}
+.toggle::after {
+  content: '';
+  width: 18px;
+  height: 18px;
+  background: var(--cream);
+  border-radius: 50%;
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  transition: transform 0.3s;
+}
+.toggle.active::after {
+  transform: translateX(20px);
+}
+
+/* NOTIFICATION BELL */
+.notif-btn {
+  background: none;
+  border: none;
+  color: var(--cream-dark);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  transition: color 0.2s;
+}
+.notif-btn:hover { color: var(--orange); }
+.notif-btn.enabled { color: var(--orange); }
+
+/* MAP */
+#map-container {
+  position: relative;
+  height: 300px;
+  background: var(--cream-dark);
+}
+#map { height: 100%; width: 100%; z-index: 1; }
+.locate-btn {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  z-index: 500;
+  background: var(--orange);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+  letter-spacing: 0.3px;
+}
+.locate-btn:hover { background: var(--orange-dark); transform: translateY(-1px); }
+.locate-btn:active { transform: translateY(0); }
+.locate-btn.loading {
+  pointer-events: none;
+  opacity: 0.8;
+}
+.locate-btn .spinner {
+  display: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+.locate-btn.loading .spinner { display: block; }
+.locate-btn.loading .btn-icon { display: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* FOREST BANNER */
+.forest-banner {
+  background: var(--forest);
+  color: var(--cream);
+  padding: 14px 16px;
+  display: none;
+}
+.forest-banner.visible { display: block; }
+.forest-banner h2 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.forest-banner .forest-meta {
+  font-size: 12px;
+  color: var(--cream-dark);
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* RED FLAG ALERT */
+.red-flag-alert {
+  background: var(--red-flag);
+  color: white;
+  padding: 12px 16px;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  animation: pulse-bg 2s ease-in-out infinite;
+}
+.red-flag-alert.visible { display: flex; }
+@keyframes pulse-bg {
+  0%, 100% { background: var(--red-flag); }
+  50% { background: #AA1A2A; }
+}
+.red-flag-alert .rfa-icon { font-size: 20px; }
+.red-flag-alert .rfa-text { flex:1; }
+.red-flag-alert .rfa-detail {
+  font-weight: 400;
+  font-size: 12px;
+  margin-top: 2px;
+  opacity: 0.9;
+}
+
+/* CONTENT AREA */
+.content { padding: 12px; max-width: 600px; margin: 0 auto; }
+
+/* CARDS */
+.card {
+  background: white;
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--cream-dark);
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.card-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--forest);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.card-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+/* PAL BADGE */
+.pal-badge {
+  font-size: 14px;
+  padding: 4px 14px;
+  border-radius: 6px;
+  font-weight: 800;
+  color: white;
+  letter-spacing: 1px;
+}
+.pal-a { background: var(--pal-a); }
+.pal-b { background: var(--pal-b); }
+.pal-c { background: var(--pal-c); color: var(--black); }
+.pal-d { background: var(--pal-d); }
+.pal-e { background: var(--pal-e); }
+
+/* DATA ROWS */
+.data-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--cream-dark);
+  font-size: 14px;
+}
+.data-row:last-child { border-bottom: none; }
+.data-label {
+  color: #666;
+  font-size: 13px;
+}
+.data-value {
+  font-weight: 600;
+  text-align: right;
+}
+.data-value.warn { color: var(--orange); }
+.data-value.danger { color: var(--red-flag); }
+.data-value.good { color: var(--forest); }
+
+/* HUMIDITY BAR */
+.rh-bar-container {
+  margin-top: 8px;
+  padding-top: 8px;
+}
+.rh-bar-label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+}
+.rh-bar {
+  height: 8px;
+  background: var(--cream-dark);
+  border-radius: 4px;
+  overflow: visible;
+  position: relative;
+}
+.rh-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.8s ease;
+}
+.rh-bar-threshold {
+  position: absolute;
+  top: -2px;
+  width: 2px;
+  height: 12px;
+  background: var(--red-flag);
+}
+
+/* FORECAST STRIP */
+.forecast-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 0;
+  -webkit-overflow-scrolling: touch;
+}
+.forecast-item {
+  flex-shrink: 0;
+  text-align: center;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--cream);
+  min-width: 72px;
+  font-size: 12px;
+}
+.forecast-item .fi-time {
+  font-weight: 700;
+  color: var(--forest);
+  margin-bottom: 4px;
+}
+.forecast-item .fi-icon { font-size: 20px; margin: 4px 0; }
+.forecast-item .fi-temp { font-weight: 700; font-size: 16px; }
+.forecast-item .fi-rh { color: #666; font-size: 11px; margin-top: 2px; }
+
+/* PRECAUTIONS LIST */
+.precaution {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--cream-dark);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.precaution:last-child { border-bottom: none; }
+.precaution-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--cream);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+/* PRO MODE DATA TABLE */
+.pro-table {
+  width: 100%;
+  font-size: 13px;
+  border-collapse: collapse;
+}
+.pro-table th {
+  text-align: left;
+  padding: 6px 8px;
+  background: var(--forest);
+  color: var(--cream);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.pro-table th:first-child { border-radius: 6px 0 0 0; }
+.pro-table th:last-child { border-radius: 0 6px 0 0; }
+.pro-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--cream-dark);
+}
+.pro-table tr:nth-child(even) td { background: var(--cream); }
+
+/* PRO ONLY CONTENT */
+.pro-only { display: none; }
+body.pro-mode .pro-only { display: block; }
+body.pro-mode .pro-only-flex { display: flex; }
+body.pro-mode .pub-only { display: none; }
+
+/* OVERNIGHT RECOVERY */
+.recovery-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 80px;
+  padding-top: 8px;
+}
+.recovery-bar {
+  flex: 1;
+  background: var(--forest-light);
+  border-radius: 3px 3px 0 0;
+  min-height: 4px;
+  position: relative;
+  transition: height 0.5s ease;
+}
+.recovery-bar.below-threshold { background: var(--orange); }
+.recovery-bar.critical { background: var(--red-flag); }
+.recovery-time {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #999;
+  margin-top: 4px;
+}
+
+/* LOADING STATE */
+.loading-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(28,28,28,0.6);
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.loading-overlay.visible { display: flex; }
+.loading-box {
+  background: white;
+  border-radius: var(--radius);
+  padding: 32px;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+}
+.loading-box .spinner-lg {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--cream-dark);
+  border-top-color: var(--orange);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+.loading-box p {
+  font-size: 14px;
+  color: #666;
+}
+
+/* EMPTY STATE */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+}
+.empty-state .es-icon { font-size: 48px; margin-bottom: 16px; }
+.empty-state h3 {
+  font-size: 18px;
+  color: var(--forest);
+  margin-bottom: 8px;
+}
+.empty-state p {
+  font-size: 14px;
+  color: #888;
+  line-height: 1.5;
+  max-width: 280px;
+  margin: 0 auto;
+}
+
+/* SETTINGS PANEL */
+.settings-panel {
+  background: white;
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--cream-dark);
+  display: none;
+}
+.settings-panel.visible { display: block; }
+.settings-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--cream-dark);
+}
+.settings-row:last-child { border-bottom: none; }
+.settings-label { font-size: 14px; }
+.settings-desc { font-size: 12px; color: #888; margin-top: 2px; }
+
+/* DATA SOURCE NOTE */
+.source-note {
+  text-align: center;
+  font-size: 11px;
+  color: #aaa;
+  padding: 16px;
+  line-height: 1.5;
+}
+.source-note a { color: var(--forest); }
+
+/* MANUAL LOCATION PANEL */
+.manual-loc {
+  position: absolute;
+  bottom: 60px;
+  left: 16px;
+  right: 16px;
+  z-index: 500;
+  background: white;
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow-lg);
+  display: none;
+  border: 1px solid var(--cream-dark);
+}
+.manual-loc.visible { display: block; }
+.manual-loc h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--forest);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.manual-loc-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.manual-loc input, .manual-loc select {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--cream-dark);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: var(--font);
+  background: var(--cream);
+  color: var(--black);
+}
+.manual-loc input:focus, .manual-loc select:focus {
+  outline: none;
+  border-color: var(--forest);
+}
+.manual-loc-btn {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: all 0.2s;
+}
+.manual-loc-btn.primary {
+  background: var(--forest);
+  color: white;
+}
+.manual-loc-btn.primary:hover { background: var(--forest-dark); }
+.manual-loc-btn.secondary {
+  background: var(--cream);
+  color: var(--forest);
+  border: 1px solid var(--cream-dark);
+  margin-top: 6px;
+}
+.manual-loc-btn.secondary:hover { background: var(--cream-dark); }
+.manual-loc-divider {
+  text-align: center;
+  font-size: 11px;
+  color: #999;
+  margin: 10px 0;
+  position: relative;
+}
+.manual-loc-divider::before, .manual-loc-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 40%;
+  height: 1px;
+  background: var(--cream-dark);
+}
+.manual-loc-divider::before { left: 0; }
+.manual-loc-divider::after { right: 0; }
+.manual-loc-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #999;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.manual-loc-close:hover { color: var(--black); }
+.loc-error-msg {
+  background: var(--red-flag-bg);
+  color: var(--red-flag);
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 10px;
+  display: none;
+  line-height: 1.4;
+}
+.loc-error-msg.visible { display: block; }
+
+/* RESPONSIVE */
+@media (min-width: 480px) {
+  #map-container { height: 360px; }
+}
+@media (min-width: 768px) {
+  #map-container { height: 420px; }
+  .content { padding: 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <div class="header-logo">&#x1F525;</div>
+    <div>
+      <div class="header-title">ForestWatch</div>
+      <div class="header-subtitle">Wildfire Situational Awareness</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="toggle-wrap">
+      <span>Pro</span>
+      <div class="toggle" id="proToggle" onclick="toggleProMode()"></div>
+    </div>
+    <button class="notif-btn" id="notifBtn" onclick="toggleNotifications()" title="Daily 7am Notifications">&#x1F514;</button>
+  </div>
+</header>
+
+<!-- RED FLAG ALERT BAR -->
+<div class="red-flag-alert" id="redFlagAlert">
+  <span class="rfa-icon">&#x26A0;</span>
+  <div>
+    <div class="rfa-text" id="redFlagText">RED FLAG WARNING</div>
+    <div class="rfa-detail" id="redFlagDetail"></div>
+  </div>
+</div>
+
+<!-- FOREST BANNER -->
+<div class="forest-banner" id="forestBanner">
+  <h2 id="forestName">---</h2>
+  <div class="forest-meta">
+    <span id="forestRegion">Region --</span>
+    <span id="forestAcres">-- acres</span>
+    <span id="forestGACC">GACC: --</span>
+  </div>
+</div>
+
+<!-- MAP -->
+<div id="map-container">
+  <div id="map"></div>
+  <button class="locate-btn" id="locateBtn" onclick="geolocateUser()">
+    <span class="btn-icon">&#x1F4CD;</span>
+    <span class="spinner"></span>
+    Locate Me
+  </button>
+
+  <!-- MANUAL LOCATION PANEL -->
+  <div class="manual-loc" id="manualLocPanel">
+    <button class="manual-loc-close" onclick="toggleManualPanel()">&times;</button>
+    <h4>Set Location Manually</h4>
+    <div class="loc-error-msg" id="locErrorMsg"></div>
+    <div class="manual-loc-row">
+      <input type="text" id="manualLat" placeholder="Latitude (e.g. 40.9)" inputmode="decimal">
+      <input type="text" id="manualLon" placeholder="Longitude (e.g. -123.5)" inputmode="decimal">
+    </div>
+    <button class="manual-loc-btn primary" onclick="useManualCoords()">Go to Coordinates</button>
+    <div class="manual-loc-divider">or select a forest</div>
+    <select id="forestSelect" onchange="useSelectedForest()">
+      <option value="">-- Choose a National Forest --</option>
+      <optgroup label="R5 - Pacific Southwest (ONCC)">
+        <option value="40.9,-123.5">Six Rivers NF</option>
+        <option value="41.3,-122.5">Shasta-Trinity NF</option>
+        <option value="40.5,-122.8">Mendocino NF</option>
+        <option value="39.5,-121.0">Plumas NF</option>
+        <option value="39.1,-120.6">Tahoe NF</option>
+        <option value="38.8,-120.5">Eldorado NF</option>
+        <option value="38.5,-119.8">Stanislaus NF</option>
+        <option value="37.5,-119.2">Sierra NF</option>
+        <option value="36.5,-118.5">Sequoia NF</option>
+        <option value="34.7,-119.0">Los Padres NF</option>
+        <option value="34.3,-117.7">Angeles NF</option>
+        <option value="34.2,-118.2">San Bernardino NF</option>
+        <option value="33.5,-116.8">Cleveland NF</option>
+        <option value="40.0,-123.0">Klamath NF</option>
+        <option value="39.0,-122.0">Lassen NF</option>
+        <option value="41.0,-121.5">Modoc NF</option>
+        <option value="37.8,-119.5">Inyo NF</option>
+      </optgroup>
+      <optgroup label="R6 - Pacific Northwest (NWCC)">
+        <option value="45.3,-121.8">Mt. Hood NF</option>
+        <option value="44.0,-121.7">Deschutes NF</option>
+        <option value="44.2,-122.0">Willamette NF</option>
+        <option value="42.5,-122.5">Rogue River-Siskiyou NF</option>
+        <option value="43.5,-123.0">Umpqua NF</option>
+        <option value="47.5,-121.2">Mt. Baker-Snoqualmie NF</option>
+        <option value="46.5,-121.5">Gifford Pinchot NF</option>
+        <option value="48.0,-120.5">Okanogan-Wenatchee NF</option>
+        <option value="46.0,-118.5">Umatilla NF</option>
+        <option value="44.5,-118.5">Malheur NF</option>
+        <option value="44.0,-119.0">Ochoco NF</option>
+        <option value="42.0,-121.0">Fremont-Winema NF</option>
+      </optgroup>
+      <optgroup label="R1 - Northern (NRCC)">
+        <option value="46.8,-113.8">Lolo NF</option>
+        <option value="47.5,-115.0">Flathead NF</option>
+        <option value="46.0,-114.5">Bitterroot NF</option>
+        <option value="47.0,-116.0">Idaho Panhandle NF</option>
+        <option value="45.5,-114.0">Nez Perce-Clearwater NF</option>
+      </optgroup>
+      <optgroup label="R2 - Rocky Mountain (RMCC)">
+        <option value="39.6,-105.8">Arapaho-Roosevelt NF</option>
+        <option value="39.0,-106.5">White River NF</option>
+        <option value="38.5,-106.0">Pike-San Isabel NF</option>
+        <option value="37.5,-107.5">San Juan NF</option>
+      </optgroup>
+      <optgroup label="R3 - Southwestern (SWCC)">
+        <option value="35.8,-105.8">Santa Fe NF</option>
+        <option value="33.4,-108.8">Gila NF</option>
+        <option value="34.5,-111.5">Coconino NF</option>
+        <option value="34.8,-111.8">Prescott NF</option>
+        <option value="34.0,-109.5">Apache-Sitgreaves NF</option>
+        <option value="32.5,-110.7">Coronado NF</option>
+        <option value="36.0,-105.5">Carson NF</option>
+        <option value="33.5,-105.5">Lincoln NF</option>
+      </optgroup>
+      <optgroup label="R4 - Intermountain (GBCC)">
+        <option value="43.5,-114.5">Sawtooth NF</option>
+        <option value="44.5,-111.0">Caribou-Targhee NF</option>
+        <option value="42.0,-115.0">Humboldt-Toiyabe NF</option>
+        <option value="40.5,-111.5">Uinta-Wasatch-Cache NF</option>
+        <option value="43.0,-110.5">Bridger-Teton NF</option>
+      </optgroup>
+      <optgroup label="R8 - Southern (SACC)">
+        <option value="35.5,-83.5">Nantahala NF</option>
+        <option value="35.8,-82.5">Pisgah NF</option>
+        <option value="37.8,-79.5">George Washington-Jefferson NF</option>
+        <option value="34.8,-84.0">Chattahoochee-Oconee NF</option>
+        <option value="35.0,-83.0">Cherokee NF</option>
+      </optgroup>
+      <optgroup label="R9 - Eastern (EACC)">
+        <option value="46.5,-89.0">Chequamegon-Nicolet NF</option>
+        <option value="47.5,-91.5">Superior NF</option>
+        <option value="44.5,-84.0">Huron-Manistee NF</option>
+        <option value="44.0,-71.5">White Mountain NF</option>
+        <option value="43.0,-73.0">Green Mountain NF</option>
+      </optgroup>
+    </select>
+    <button class="manual-loc-btn secondary" onclick="toggleManualPanel()">Cancel</button>
+  </div>
+</div>
+
+<!-- LOADING OVERLAY -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-box">
+    <div class="spinner-lg"></div>
+    <p id="loadingText">Finding your location...</p>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div class="content" id="mainContent">
+
+  <!-- EMPTY STATE (default) -->
+  <div class="empty-state" id="emptyState">
+    <div class="es-icon">&#x1F332;</div>
+    <h3>Welcome to ForestWatch</h3>
+    <p>Tap <strong>Locate Me</strong> to get wildfire situational awareness for your National Forest.</p>
+    <p style="margin-top:12px;font-size:13px;color:#aaa;">GPS not working? Click the map, or use the manual entry panel.</p>
+  </div>
+
+  <!-- DATA PANELS (hidden until data loads) -->
+  <div id="dataPanels" style="display:none;">
+
+    <!-- CURRENT CONDITIONS -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">&#x1F321; Current Conditions</span>
+        <span class="card-badge" id="weatherTime" style="color:#999;font-size:11px;"></span>
+      </div>
+      <div class="data-row">
+        <span class="data-label">Temperature</span>
+        <span class="data-value" id="wxTemp">--</span>
+      </div>
+      <div class="data-row">
+        <span class="data-label">Wind</span>
+        <span class="data-value" id="wxWind">--</span>
+      </div>
+      <div class="data-row">
+        <span class="data-label">Relative Humidity</span>
+        <span class="data-value" id="wxRH">--</span>
+      </div>
+      <div class="data-row">
+        <span class="data-label">Conditions</span>
+        <span class="data-value" id="wxConditions">--</span>
+      </div>
+      <div class="data-row pub-only">
+        <span class="data-label">Fire Weather Risk</span>
+        <span class="data-value" id="wxRiskPublic">--</span>
+      </div>
+      <!-- Pro mode extras -->
+      <div class="pro-only">
+        <div class="data-row">
+          <span class="data-label">Dewpoint</span>
+          <span class="data-value" id="wxDewpoint">--</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Transport Wind</span>
+          <span class="data-value" id="wxTransWind">--</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Mixing Height</span>
+          <span class="data-value" id="wxMixing">--</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Haines Index</span>
+          <span class="data-value" id="wxHaines">--</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Fire Weather Zone</span>
+          <span class="data-value" id="wxFireZone">--</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROJECT ACTIVITY LEVEL -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">&#x1F6A8; Project Activity Level</span>
+        <span class="pal-badge" id="palBadge">--</span>
+      </div>
+      <div id="palDescription" style="font-size:14px;line-height:1.5;margin-bottom:12px;"></div>
+      <div id="palRestrictions"></div>
+      <!-- Pro mode: PAL detail table -->
+      <div class="pro-only" id="palProDetail" style="margin-top:12px;"></div>
+    </div>
+
+    <!-- OVERNIGHT RH RECOVERY -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">&#x1F4A7; Humidity Recovery</span>
+        <span class="card-badge" id="recoveryStatus" style="font-size:11px;"></span>
+      </div>
+      <div id="recoveryPublic" class="pub-only" style="font-size:14px;line-height:1.5;"></div>
+      <div class="pro-only">
+        <div class="rh-bar-container">
+          <div class="rh-bar-label">
+            <span>Current RH</span>
+            <span id="rhCurrent">--%</span>
+          </div>
+          <div class="rh-bar">
+            <div class="rh-bar-fill" id="rhBarFill" style="width:0%;background:var(--forest);"></div>
+            <div class="rh-bar-threshold" id="rhThreshold" style="left:25%;" title="25% critical threshold"></div>
+          </div>
+        </div>
+        <div style="margin-top:12px;">
+          <div class="rh-bar-label"><span>Overnight Recovery Trend</span></div>
+          <div class="recovery-chart" id="recoveryChart"></div>
+          <div class="recovery-time" id="recoveryTime"></div>
+        </div>
+        <div class="data-row" style="margin-top:8px;">
+          <span class="data-label">Min RH (next 24h)</span>
+          <span class="data-value" id="rhMin">--</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Max RH (overnight)</span>
+          <span class="data-value" id="rhMax">--</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Recovery Adequate?</span>
+          <span class="data-value" id="rhRecoveryAdequate">--</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- FORECAST -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">&#x26C5; Forecast</span>
+      </div>
+      <div class="forecast-strip" id="forecastStrip"></div>
+    </div>
+
+    <!-- SAFETY PRECAUTIONS -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">&#x1F6E1; Safety Precautions</span>
+      </div>
+      <div id="precautionsList"></div>
+    </div>
+
+    <!-- PRO: FIRE WEATHER INDICES -->
+    <div class="card pro-only">
+      <div class="card-header">
+        <span class="card-title">&#x1F4CA; Fire Weather Indices</span>
+        <span style="font-size:11px;color:#999;">From weather.gov gridpoint data</span>
+      </div>
+      <table class="pro-table">
+        <thead>
+          <tr><th>Index</th><th>Value</th><th>Trend</th></tr>
+        </thead>
+        <tbody id="indicesTable"></tbody>
+      </table>
+    </div>
+
+    <!-- DATA SOURCES -->
+    <div class="source-note">
+      Data sourced from <a href="https://weather.gov" target="_blank">weather.gov</a>,
+      <a href="https://apps.fs.usda.gov" target="_blank">USFS</a>,
+      <a href="https://gacc.nifc.gov" target="_blank">GACC/NIFC</a>, and
+      <a href="https://fsapps.nwcg.gov" target="_blank">NWCG</a><br>
+      Last updated: <span id="lastUpdated">--</span>
+    </div>
+
+  </div><!-- /dataPanels -->
+</div><!-- /content -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// ============================================================
+// FORESTWATCH - CORE APPLICATION
+// ============================================================
+
+const APP = {
+  map: null,
+  mapAvailable: false,
+  userMarker: null,
+  forestLayer: null,
+  userLat: null,
+  userLon: null,
+  proMode: false,
+  forestData: null,
+  weatherData: null,
+  gridData: null,
+  alertsData: null,
+  notificationsEnabled: false,
+
+  // USFS ArcGIS endpoint for National Forest boundaries
+  USFS_URL: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_ForestSystemBoundaries_01/MapServer/0/query',
+
+  // Region to GACC mapping
+  REGION_GACC: {
+    '01': 'NRCC', '02': 'RMCC', '03': 'SWCC', '04': 'GBCC',
+    '05': 'ONCC', '06': 'NWCC', '08': 'SACC', '09': 'EACC',
+    '10': 'AKCC'
+  },
+  REGION_NAMES: {
+    '01': 'Northern (R1)', '02': 'Rocky Mountain (R2)', '03': 'Southwestern (R3)',
+    '04': 'Intermountain (R4)', '05': 'Pacific Southwest (R5)',
+    '06': 'Pacific Northwest (R6)', '08': 'Southern (R8)',
+    '09': 'Eastern (R9)', '10': 'Alaska (R10)'
+  }
+};
+
+// ============================================================
+// MAP INITIALIZATION
+// ============================================================
+function initMap() {
+  if (typeof L === 'undefined') {
+    console.warn('Leaflet not available - map disabled. App will still function with manual location entry.');
+    APP.mapAvailable = false;
+    // Show fallback in map container
+    const container = document.getElementById('map');
+    container.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;
+        background:var(--cream-dark);color:var(--black);text-align:center;padding:20px;">
+        <div style="font-size:36px;margin-bottom:10px;">&#x1F5FA;</div>
+        <div style="font-size:14px;font-weight:600;color:var(--forest);margin-bottom:6px;">Map unavailable in this viewer</div>
+        <div style="font-size:12px;color:#888;max-width:260px;line-height:1.4;">
+          Use the forest dropdown or enter coordinates below. For full map, open this file via localhost.
+        </div>
+      </div>`;
+    return;
+  }
+
+  try {
+    APP.map = L.map('map', {
+      center: [39.8283, -98.5795],
+      zoom: 4,
+      zoomControl: true,
+      attributionControl: true
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 18
+    }).addTo(APP.map);
+
+    APP.mapAvailable = true;
+  } catch (err) {
+    console.error('Map init failed:', err);
+    APP.mapAvailable = false;
+  }
+}
+
+// ============================================================
+// GEOLOCATION
+// ============================================================
+async function geolocateUser() {
+  const btn = document.getElementById('locateBtn');
+
+  // Detect environments where geolocation will be blocked
+  const inIframe = window.self !== window.top;
+  const onForeignHost = window.location.hostname.includes('claudeusercontent.com');
+
+  if (!navigator.geolocation || onForeignHost || (inIframe && window.isSecureContext === false)) {
+    showLocationError('GPS is not available in this viewer. Select a forest or enter coordinates below.');
+    document.getElementById('manualLocPanel').classList.add('visible');
+    return;
+  }
+
+  if (window.isSecureContext === false) {
+    showLocationError(
+      'GPS requires HTTPS or localhost. Serve this folder with "python -m http.server 8080" and visit localhost:8080, or enter coordinates below.'
+    );
+    document.getElementById('manualLocPanel').classList.add('visible');
+    return;
+  }
+
+  btn.classList.add('loading');
+  showLoading('Finding your location...');
+
+  try {
+    const pos = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 60000
+      });
+    });
+
+    await loadLocationData(pos.coords.latitude, pos.coords.longitude);
+
+  } catch (err) {
+    console.log('Geolocation unavailable:', err.message || err);
+    const errStr = String(err.message || err).toLowerCase();
+    let msg;
+    if (errStr.includes('permissions policy') || errStr.includes('permission denied') || err.code === 1) {
+      msg = 'GPS is blocked in this viewer. Select a forest from the dropdown or enter coordinates.';
+    } else if (err.code === 2) {
+      msg = 'Location unavailable (GPS/network error). Try manual entry.';
+    } else if (err.code === 3) {
+      msg = 'Location request timed out. Try manual entry.';
+    } else {
+      msg = 'GPS unavailable here. Select a forest or enter coordinates below.';
+    }
+    showLocationError(msg);
+    // Ensure manual panel is visible
+    document.getElementById('manualLocPanel').classList.add('visible');
+    hideLoading();
+  } finally {
+    btn.classList.remove('loading');
+  }
+}
+
+// Core data loading function - used by GPS, manual coords, and forest selector
+async function loadLocationData(lat, lon) {
+  showLoading('Identifying National Forest...');
+  APP.userLat = lat;
+  APP.userLon = lon;
+
+  // Update map (if available)
+  if (APP.mapAvailable) {
+    APP.map.setView([APP.userLat, APP.userLon], 10);
+    if (APP.userMarker) APP.map.removeLayer(APP.userMarker);
+    APP.userMarker = L.marker([APP.userLat, APP.userLon], {
+      icon: L.divIcon({
+        className: 'user-marker',
+        html: '<div style="width:16px;height:16px;background:#D4702A;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.4);"></div>',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+      })
+    }).addTo(APP.map).bindPopup(`${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+  }
+
+  try {
+    await fetchForestData();
+    showLoading('Pulling weather data...');
+    await fetchWeatherData();
+    showLoading('Checking alerts...');
+    await fetchAlerts();
+
+    renderAll();
+
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('dataPanels').style.display = 'block';
+    document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
+
+    // Close manual panel if open
+    document.getElementById('manualLocPanel').classList.remove('visible');
+    clearLocationError();
+
+  } catch (err) {
+    console.error('Data load error:', err);
+    showLocationError('Failed to load data for this location. Check your internet connection and try again.');
+  } finally {
+    hideLoading();
+  }
+}
+
+// ============================================================
+// MANUAL LOCATION ENTRY
+// ============================================================
+function toggleManualPanel() {
+  const panel = document.getElementById('manualLocPanel');
+  panel.classList.toggle('visible');
+}
+
+function useManualCoords() {
+  const latStr = document.getElementById('manualLat').value.trim();
+  const lonStr = document.getElementById('manualLon').value.trim();
+
+  const lat = parseFloat(latStr);
+  const lon = parseFloat(lonStr);
+
+  if (isNaN(lat) || isNaN(lon)) {
+    showLocationError('Enter valid numbers for latitude and longitude.');
+    return;
+  }
+  if (lat < 17 || lat > 72 || lon < -180 || lon > -64) {
+    showLocationError('Coordinates appear to be outside the US. Latitude: 17-72, Longitude: -180 to -64.');
+    return;
+  }
+
+  clearLocationError();
+  loadLocationData(lat, lon);
+}
+
+function useSelectedForest() {
+  const sel = document.getElementById('forestSelect');
+  if (!sel.value) return;
+  const parts = sel.value.split(',');
+  const lat = parseFloat(parts[0]);
+  const lon = parseFloat(parts[1]);
+  clearLocationError();
+  loadLocationData(lat, lon);
+}
+
+// Map click to set location
+function enableMapClick() {
+  if (!APP.mapAvailable) return;
+  APP.map.on('click', function(e) {
+    const lat = e.latlng.lat;
+    const lon = e.latlng.lng;
+    // Only trigger if within rough US bounds
+    if (lat > 17 && lat < 72 && lon > -180 && lon < -64) {
+      loadLocationData(lat, lon);
+    }
+  });
+}
+
+function showLocationError(msg) {
+  const el = document.getElementById('locErrorMsg');
+  el.textContent = msg;
+  el.classList.add('visible');
+  // Also show the manual panel if not visible
+  document.getElementById('manualLocPanel').classList.add('visible');
+}
+
+function clearLocationError() {
+  const el = document.getElementById('locErrorMsg');
+  el.textContent = '';
+  el.classList.remove('visible');
+}
+
+// ============================================================
+// USFS FOREST BOUNDARY QUERY
+// ============================================================
+async function fetchForestData() {
+  const geom = JSON.stringify({
+    x: APP.userLon,
+    y: APP.userLat,
+    spatialReference: { wkid: 4326 }
+  });
+
+  const params = new URLSearchParams({
+    geometry: geom,
+    geometryType: 'esriGeometryPoint',
+    spatialRel: 'esriSpatialRelIntersects',
+    outFields: 'FORESTNAME,FORESTNUMBER,GIS_ACRES,REGION',
+    returnGeometry: 'true',
+    outSR: '4326',
+    maxAllowableOffset: '0.005',  // ~500m simplification for performance
+    f: 'geojson'
+  });
+
+  try {
+    const resp = await fetch(`${APP.USFS_URL}?${params}`);
+    if (!resp.ok) throw new Error(`USFS API returned ${resp.status}`);
+    const data = await resp.json();
+
+    if (data.features && data.features.length > 0) {
+      APP.forestData = data.features[0];
+      drawForestBoundary(data.features[0]);
+    } else {
+      // Not in a National Forest - find nearest
+      APP.forestData = null;
+      await findNearestForest();
+    }
+  } catch (err) {
+    console.error('USFS query error:', err);
+    APP.forestData = null;
+  }
+}
+
+async function findNearestForest() {
+  // Query forests near the user's location with a buffer
+  const geom = JSON.stringify({
+    xmin: APP.userLon - 1,
+    ymin: APP.userLat - 1,
+    xmax: APP.userLon + 1,
+    ymax: APP.userLat + 1,
+    spatialReference: { wkid: 4326 }
+  });
+
+  const params = new URLSearchParams({
+    geometry: geom,
+    geometryType: 'esriGeometryEnvelope',
+    spatialRel: 'esriSpatialRelIntersects',
+    outFields: 'FORESTNAME,FORESTNUMBER,GIS_ACRES,REGION',
+    returnGeometry: 'true',
+    outSR: '4326',
+    maxAllowableOffset: '0.005',
+    f: 'geojson',
+    resultRecordCount: '5'
+  });
+
+  try {
+    const resp = await fetch(`${APP.USFS_URL}?${params}`);
+    if (!resp.ok) throw new Error(`USFS nearest query returned ${resp.status}`);
+    const data = await resp.json();
+    if (data.features && data.features.length > 0) {
+      // Pick the first (closest by bounding box)
+      APP.forestData = data.features[0];
+      APP.forestData.properties._nearby = true;
+      drawForestBoundary(data.features[0]);
+    }
+  } catch (err) {
+    console.error('Nearest forest query error:', err);
+  }
+}
+
+function drawForestBoundary(feature) {
+  if (!APP.mapAvailable) return;
+
+  if (APP.forestLayer) APP.map.removeLayer(APP.forestLayer);
+
+  APP.forestLayer = L.geoJSON(feature, {
+    style: {
+      color: '#2E5E3E',
+      weight: 2.5,
+      fillColor: '#2E5E3E',
+      fillOpacity: 0.08,
+      dashArray: '6 3'
+    }
+  }).addTo(APP.map);
+
+  // Fit map to show both user and forest
+  const bounds = APP.forestLayer.getBounds();
+  if (APP.userMarker) bounds.extend(APP.userMarker.getLatLng());
+  APP.map.fitBounds(bounds, { padding: [30, 30] });
+}
+
+// ============================================================
+// WEATHER.GOV API
+// ============================================================
+async function fetchWeatherData() {
+  try {
+    // Step 1: Get grid info from point
+    const pointResp = await fetch(
+      `https://api.weather.gov/points/${APP.userLat.toFixed(4)},${APP.userLon.toFixed(4)}`
+    );
+    if (!pointResp.ok) throw new Error(`Points API returned ${pointResp.status}`);
+    const pointData = await pointResp.json();
+    const props = pointData.properties;
+
+    APP.weatherMeta = {
+      gridId: props.gridId,
+      gridX: props.gridX,
+      gridY: props.gridY,
+      fireZone: props.fireWeatherZone ? props.fireWeatherZone.split('/').pop() : '--',
+      timeZone: props.timeZone,
+      city: props.relativeLocation?.properties?.city || '--',
+      state: props.relativeLocation?.properties?.state || '--'
+    };
+
+    // Step 2: Get forecast (with retry - weather.gov sometimes 500s)
+    const fcstResp = await fetchWithRetry(props.forecast);
+    if (fcstResp.ok) APP.forecastData = await fcstResp.json();
+
+    // Step 3: Get hourly forecast
+    const hourlyResp = await fetchWithRetry(props.forecastHourly);
+    if (hourlyResp.ok) APP.hourlyData = await hourlyResp.json();
+
+    // Step 4: Get raw gridpoint data (RH, wind, dewpoint, etc.)
+    const gridResp = await fetchWithRetry(props.forecastGridData);
+    if (gridResp.ok) APP.gridData = await gridResp.json();
+
+  } catch (err) {
+    console.error('Weather fetch error:', err);
+  }
+}
+
+async function fetchWithRetry(url, retries = 2) {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const resp = await fetch(url);
+      if (resp.ok || i === retries) return resp;
+      // weather.gov returns 500 intermittently; wait and retry
+      await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+    } catch (err) {
+      if (i === retries) throw err;
+      await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+    }
+  }
+}
+
+async function fetchAlerts() {
+  try {
+    const resp = await fetch(
+      `https://api.weather.gov/alerts/active?point=${APP.userLat.toFixed(4)},${APP.userLon.toFixed(4)}&status=actual`
+    );
+    if (!resp.ok) {
+      console.warn(`Alerts API returned ${resp.status}`);
+      APP.alertsData = [];
+      return;
+    }
+    const data = await resp.json();
+    APP.alertsData = data.features || [];
+  } catch (err) {
+    console.error('Alerts fetch error:', err);
+    APP.alertsData = [];
+  }
+}
+
+// ============================================================
+// RENDER ALL DATA
+// ============================================================
+function renderAll() {
+  renderForestBanner();
+  renderRedFlagAlerts();
+  renderCurrentConditions();
+  renderPAL();
+  renderHumidityRecovery();
+  renderForecast();
+  renderPrecautions();
+  renderFireIndices();
+}
+
+// -- FOREST BANNER --
+function renderForestBanner() {
+  const banner = document.getElementById('forestBanner');
+  if (!APP.forestData) {
+    banner.classList.remove('visible');
+    return;
+  }
+
+  const p = APP.forestData.properties;
+  const name = p.FORESTNAME || p.forestname || 'Unknown Forest';
+  const region = p.REGION || p.region || '--';
+  const acres = p.GIS_ACRES || p.gis_acres;
+  const gacc = APP.REGION_GACC[region] || '--';
+
+  document.getElementById('forestName').textContent =
+    (p._nearby ? 'Near: ' : '') + name;
+  document.getElementById('forestRegion').textContent =
+    APP.REGION_NAMES[region] || `Region ${region}`;
+  document.getElementById('forestAcres').textContent =
+    acres ? `${Math.round(acres).toLocaleString()} acres` : '-- acres';
+  document.getElementById('forestGACC').textContent = `GACC: ${gacc}`;
+
+  banner.classList.add('visible');
+}
+
+// -- RED FLAG ALERTS --
+function renderRedFlagAlerts() {
+  const el = document.getElementById('redFlagAlert');
+  const rfws = (APP.alertsData || []).filter(a =>
+    a.properties.event && (
+      a.properties.event.toLowerCase().includes('red flag') ||
+      a.properties.event.toLowerCase().includes('fire weather')
+    )
+  );
+
+  if (rfws.length > 0) {
+    const alert = rfws[0].properties;
+    document.getElementById('redFlagText').textContent = alert.event.toUpperCase();
+    document.getElementById('redFlagDetail').textContent =
+      alert.headline || `Until ${new Date(alert.expires).toLocaleString()}`;
+    el.classList.add('visible');
+  } else {
+    el.classList.remove('visible');
+  }
+
+  // Also check for any fire-related alerts
+  const fireAlerts = (APP.alertsData || []).filter(a =>
+    a.properties.event && a.properties.event.toLowerCase().includes('fire')
+  );
+  // Store for precautions
+  APP.fireAlerts = fireAlerts;
+}
+
+// -- CURRENT CONDITIONS --
+function renderCurrentConditions() {
+  if (!APP.hourlyData && !APP.gridData) return;
+
+  const hourly = APP.hourlyData?.properties?.periods;
+  const grid = APP.gridData?.properties;
+
+  if (hourly && hourly.length > 0) {
+    const now = hourly[0];
+    document.getElementById('wxTemp').textContent = `${now.temperature}\u00B0${now.temperatureUnit}`;
+    document.getElementById('wxWind').textContent = `${now.windSpeed} ${now.windDirection}`;
+    document.getElementById('wxConditions').textContent = now.shortForecast;
+    document.getElementById('weatherTime').textContent =
+      new Date(now.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
+
+  // RH from gridpoint data
+  const rh = grid ? getCurrentValue(grid.relativeHumidity) : null;
+  if (rh !== null) {
+    document.getElementById('wxRH').textContent = `${Math.round(rh)}%`;
+    const rhEl = document.getElementById('wxRH');
+    if (rh < 15) rhEl.classList.add('danger');
+    else if (rh < 25) rhEl.classList.add('warn');
+    else rhEl.classList.add('good');
+  }
+
+  // Fire risk for public mode
+  const riskLevel = calculateFireRisk(rh, hourly?.[0]);
+  const riskEl = document.getElementById('wxRiskPublic');
+  riskEl.textContent = riskLevel.label;
+  riskEl.className = 'data-value ' + riskLevel.class;
+
+  // Pro mode extras
+  const dew = grid ? getCurrentValue(grid.dewpoint) : null;
+  if (dew !== null) {
+    document.getElementById('wxDewpoint').textContent =
+      `${Math.round(dew * 9/5 + 32)}\u00B0F / ${Math.round(dew)}\u00B0C`;
+  }
+
+  const transWind = grid ? getCurrentValue(grid.transportWindSpeed) : null;
+  if (transWind !== null) {
+    document.getElementById('wxTransWind').textContent = `${Math.round(transWind * 0.621371)} mph`;
+  }
+
+  const mixing = grid ? getCurrentValue(grid.mixingHeight) : null;
+  if (mixing !== null) {
+    document.getElementById('wxMixing').textContent = `${Math.round(mixing * 3.28084)} ft`;
+  }
+
+  const haines = grid ? getCurrentValue(grid.hainesIndex) : null;
+  if (haines !== null) {
+    document.getElementById('wxHaines').textContent = haines;
+    const hEl = document.getElementById('wxHaines');
+    if (haines >= 5) hEl.classList.add('danger');
+    else if (haines >= 4) hEl.classList.add('warn');
+  }
+
+  document.getElementById('wxFireZone').textContent = APP.weatherMeta?.fireZone || '--';
+}
+
+// -- PAL (Project Activity Level) --
+function renderPAL() {
+  const rh = getCurrentValue(APP.gridData?.properties?.relativeHumidity);
+  const hourly = APP.hourlyData?.properties?.periods?.[0];
+  const pal = determinePAL(rh, hourly);
+
+  const badge = document.getElementById('palBadge');
+  badge.textContent = pal.level;
+  badge.className = 'pal-badge pal-' + pal.level.toLowerCase();
+
+  document.getElementById('palDescription').innerHTML = pal.description;
+
+  // Restrictions
+  const restrictionsHtml = pal.restrictions.map(r =>
+    `<div class="precaution">
+      <div class="precaution-icon">${r.icon}</div>
+      <div>${r.text}</div>
+    </div>`
+  ).join('');
+  document.getElementById('palRestrictions').innerHTML = restrictionsHtml;
+
+  // Pro detail
+  document.getElementById('palProDetail').innerHTML = `
+    <div style="font-size:12px;color:#888;margin-bottom:8px;font-style:italic;">
+      PAL derived from weather.gov fire weather data. For official PAL, contact the local
+      National Forest dispatch or check <a href="https://fsapps.nwcg.gov" target="_blank">fsapps.nwcg.gov</a>.
+    </div>
+    <div class="data-row">
+      <span class="data-label">Calculated PAL</span>
+      <span class="data-value">${pal.level} (${pal.levelName})</span>
+    </div>
+    <div class="data-row">
+      <span class="data-label">Based On</span>
+      <span class="data-value">RH: ${rh ? Math.round(rh) + '%' : '--'}, Wind: ${hourly?.windSpeed || '--'}</span>
+    </div>
+    <div class="data-row">
+      <span class="data-label">NFDRS Adjective Rating</span>
+      <span class="data-value">${pal.nfdrsRating}</span>
+    </div>
+  `;
+}
+
+function determinePAL(rh, hourly) {
+  // PAL determination based on fire weather conditions
+  // This is a simplified model - production would pull from actual forest dispatch
+  let windSpeed = 0;
+  if (hourly?.windSpeed) {
+    const match = hourly.windSpeed.match(/(\d+)/);
+    if (match) windSpeed = parseInt(match[1]);
+  }
+
+  const hasRedFlag = APP.fireAlerts && APP.fireAlerts.length > 0;
+
+  if (hasRedFlag || (rh !== null && rh < 10) || windSpeed > 35) {
+    return {
+      level: 'E', levelName: 'Extreme',
+      nfdrsRating: 'Extreme',
+      description: 'Extreme fire danger conditions exist. All project activity is <strong>shut down</strong>. Critical fire weather is in effect.',
+      restrictions: [
+        { icon: '\u26D4', text: 'ALL project activity suspended. No exceptions.' },
+        { icon: '\u{1F6A8}', text: 'Industrial operations prohibited in wildland areas.' },
+        { icon: '\u{1F4DE}', text: 'Contact local dispatch before ANY field activity.' },
+        { icon: '\u{1F6B7}', text: 'Public use restrictions likely in effect. Check forest orders.' }
+      ]
+    };
+  } else if ((rh !== null && rh < 15) || windSpeed > 25) {
+    return {
+      level: 'D', levelName: 'Very High',
+      nfdrsRating: 'Very High',
+      description: 'Very high fire danger. Significant restrictions on project activity. Fire suppression resources on high alert.',
+      restrictions: [
+        { icon: '\u26A0', text: 'Most mechanical operations restricted or require fire watch.' },
+        { icon: '\u{1F9EF}', text: 'Welding and grinding prohibited without exemption.' },
+        { icon: '\u{1F4A7}', text: 'Water tenders must be on-site for any approved activity.' },
+        { icon: '\u{1F440}', text: 'Extended fire watch required after all operations cease.' }
+      ]
+    };
+  } else if ((rh !== null && rh < 25) || windSpeed > 15) {
+    return {
+      level: 'C', levelName: 'High',
+      nfdrsRating: 'High',
+      description: 'High fire danger. Project activities permitted with additional precautions and fire prevention measures.',
+      restrictions: [
+        { icon: '\u26A0', text: 'Chainsaws require spark arrestors and fire extinguishers.' },
+        { icon: '\u23F0', text: 'Hoot owl restrictions may apply (shutdown by 1:00 PM).' },
+        { icon: '\u{1F9EF}', text: 'Hot work requires fire watch and water source.' },
+        { icon: '\u{1F4CB}', text: 'File activity report with local dispatch daily.' }
+      ]
+    };
+  } else if ((rh !== null && rh < 40) || windSpeed > 10) {
+    return {
+      level: 'B', levelName: 'Moderate',
+      nfdrsRating: 'Moderate',
+      description: 'Moderate fire danger. Standard fire prevention measures required for all project activities.',
+      restrictions: [
+        { icon: '\u2705', text: 'Most project activities permitted with standard precautions.' },
+        { icon: '\u{1F9EF}', text: 'Fire tools and water required at all work sites.' },
+        { icon: '\u{1F4CB}', text: 'Maintain awareness of changing conditions throughout the day.' },
+        { icon: '\u{1F6AC}', text: 'No smoking outside enclosed vehicles or designated areas.' }
+      ]
+    };
+  } else {
+    return {
+      level: 'A', levelName: 'Low',
+      nfdrsRating: 'Low',
+      description: 'Low fire danger. Normal project activities permitted. Standard fire prevention measures apply.',
+      restrictions: [
+        { icon: '\u2705', text: 'All project activities permitted under normal operating procedures.' },
+        { icon: '\u{1F9EF}', text: 'Standard fire prevention equipment required.' },
+        { icon: '\u{1F4CB}', text: 'Monitor conditions; fire danger can change rapidly.' }
+      ]
+    };
+  }
+}
+
+// -- HUMIDITY RECOVERY --
+function renderHumidityRecovery() {
+  const grid = APP.gridData?.properties;
+  if (!grid || !grid.relativeHumidity) return;
+
+  const rhValues = grid.relativeHumidity.values || [];
+  const now = new Date();
+
+  // Get next 24 hours of RH values
+  const upcoming = [];
+  for (const v of rhValues) {
+    const time = new Date(v.validTime.split('/')[0]);
+    const diffHrs = (time - now) / 3600000;
+    if (diffHrs >= -1 && diffHrs <= 24) {
+      upcoming.push({ time, value: v.value, hour: time.getHours() });
+    }
+  }
+
+  if (upcoming.length === 0) return;
+
+  const currentRH = upcoming[0]?.value || 0;
+  const minRH = Math.min(...upcoming.map(u => u.value));
+  const maxRH = Math.max(...upcoming.map(u => u.value));
+  const overnightValues = upcoming.filter(u => u.hour >= 20 || u.hour <= 6);
+  const overnightMax = overnightValues.length > 0 ? Math.max(...overnightValues.map(u => u.value)) : maxRH;
+  const recoveryAdequate = overnightMax >= 30;
+
+  // Public view
+  let publicMsg;
+  if (recoveryAdequate) {
+    publicMsg = `Overnight humidity is expected to recover to <strong>${Math.round(overnightMax)}%</strong>,
+      which supports fuel moisture recovery. The minimum RH today will be around <strong>${Math.round(minRH)}%</strong>.`;
+  } else {
+    publicMsg = `<span style="color:var(--orange);font-weight:600;">Poor humidity recovery expected.</span>
+      Overnight RH only reaching <strong>${Math.round(overnightMax)}%</strong>.
+      Fuels will remain dry. Minimum RH dropping to <strong>${Math.round(minRH)}%</strong>.`;
+  }
+  document.getElementById('recoveryPublic').innerHTML = publicMsg;
+
+  // Status badge
+  const statusEl = document.getElementById('recoveryStatus');
+  if (overnightMax >= 40) {
+    statusEl.textContent = 'Good Recovery';
+    statusEl.style.color = 'var(--forest)';
+  } else if (overnightMax >= 25) {
+    statusEl.textContent = 'Marginal';
+    statusEl.style.color = 'var(--orange)';
+  } else {
+    statusEl.textContent = 'Poor Recovery';
+    statusEl.style.color = 'var(--red-flag)';
+  }
+
+  // Pro mode values
+  document.getElementById('rhCurrent').textContent = `${Math.round(currentRH)}%`;
+  const barFill = document.getElementById('rhBarFill');
+  barFill.style.width = `${Math.min(currentRH, 100)}%`;
+  if (currentRH < 15) barFill.style.background = 'var(--red-flag)';
+  else if (currentRH < 25) barFill.style.background = 'var(--orange)';
+  else barFill.style.background = 'var(--forest)';
+
+  document.getElementById('rhMin').textContent = `${Math.round(minRH)}%`;
+  document.getElementById('rhMin').className = 'data-value ' + (minRH < 15 ? 'danger' : minRH < 25 ? 'warn' : 'good');
+  document.getElementById('rhMax').textContent = `${Math.round(overnightMax)}%`;
+  document.getElementById('rhRecoveryAdequate').textContent = recoveryAdequate ? 'Yes' : 'No - Extended drying';
+  document.getElementById('rhRecoveryAdequate').className = 'data-value ' + (recoveryAdequate ? 'good' : 'danger');
+
+  // Recovery chart bars
+  const chartEl = document.getElementById('recoveryChart');
+  const timeEl = document.getElementById('recoveryTime');
+  chartEl.innerHTML = '';
+
+  const chartValues = upcoming.slice(0, 24);
+  const chartMax = Math.max(...chartValues.map(v => v.value), 100);
+
+  chartValues.forEach(v => {
+    const pct = (v.value / chartMax) * 100;
+    const bar = document.createElement('div');
+    bar.className = 'recovery-bar';
+    if (v.value < 15) bar.className += ' critical';
+    else if (v.value < 25) bar.className += ' below-threshold';
+    bar.style.height = `${pct}%`;
+    bar.title = `${v.time.toLocaleTimeString([], {hour:'numeric'})} - RH: ${Math.round(v.value)}%`;
+    chartEl.appendChild(bar);
+  });
+
+  if (chartValues.length > 0) {
+    const first = chartValues[0].time.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+    const last = chartValues[chartValues.length-1].time.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+    timeEl.innerHTML = `<span>${first}</span><span>${last}</span>`;
+  }
+}
+
+// -- FORECAST --
+function renderForecast() {
+  const strip = document.getElementById('forecastStrip');
+  const hourly = APP.hourlyData?.properties?.periods;
+  if (!hourly) return;
+
+  strip.innerHTML = '';
+  const rhValues = APP.gridData?.properties?.relativeHumidity?.values || [];
+
+  // Show next 12 hourly periods
+  hourly.slice(0, 12).forEach((period, i) => {
+    const time = new Date(period.startTime);
+    const rhAtTime = findRHAtTime(rhValues, time);
+    const icon = getWeatherIcon(period.shortForecast, period.isDaytime);
+
+    const item = document.createElement('div');
+    item.className = 'forecast-item';
+    item.innerHTML = `
+      <div class="fi-time">${time.toLocaleTimeString([], {hour:'numeric'})}</div>
+      <div class="fi-icon">${icon}</div>
+      <div class="fi-temp">${period.temperature}\u00B0</div>
+      <div class="fi-rh">RH: ${rhAtTime !== null ? Math.round(rhAtTime) + '%' : '--'}</div>
+    `;
+    strip.appendChild(item);
+  });
+}
+
+// -- SAFETY PRECAUTIONS --
+function renderPrecautions() {
+  const list = document.getElementById('precautionsList');
+  const rh = getCurrentValue(APP.gridData?.properties?.relativeHumidity);
+  const hourly = APP.hourlyData?.properties?.periods?.[0];
+  const precautions = [];
+
+  // Always-applicable
+  precautions.push({
+    icon: '\u{1F4F1}',
+    text: 'Monitor local conditions. Weather can shift rapidly in forested terrain. Keep checking ForestWatch.'
+  });
+
+  // Wind-based
+  let windSpeed = 0;
+  if (hourly?.windSpeed) {
+    const match = hourly.windSpeed.match(/(\d+)/);
+    if (match) windSpeed = parseInt(match[1]);
+  }
+  if (windSpeed > 20) {
+    precautions.push({
+      icon: '\u{1F4A8}',
+      text: `High winds (${hourly.windSpeed}) increase fire spread and spotting potential. Secure loose materials and be alert to changing smoke behavior.`
+    });
+  }
+
+  // RH-based
+  if (rh !== null && rh < 15) {
+    precautions.push({
+      icon: '\u{1F525}',
+      text: 'Critically low humidity. Any ignition source can start a wildfire. Avoid all spark-producing activities.'
+    });
+  } else if (rh !== null && rh < 25) {
+    precautions.push({
+      icon: '\u26A0',
+      text: 'Low humidity contributes to rapid fire spread. Use extreme caution with any heat-producing equipment.'
+    });
+  }
+
+  // Red flag
+  if (APP.fireAlerts && APP.fireAlerts.length > 0) {
+    precautions.push({
+      icon: '\u{1F6A9}',
+      text: 'Red Flag Warning in effect. Critical fire weather conditions exist. Follow all local fire restrictions and be prepared to evacuate if needed.'
+    });
+  }
+
+  // General
+  precautions.push({
+    icon: '\u{1F9EF}',
+    text: 'Carry fire extinguisher, shovel, and water in vehicles when traveling through forested areas.'
+  });
+  precautions.push({
+    icon: '\u{1F6B7}',
+    text: 'Obey all posted fire restrictions and forest closure orders. Check with the local Ranger District.'
+  });
+
+  list.innerHTML = precautions.map(p =>
+    `<div class="precaution">
+      <div class="precaution-icon">${p.icon}</div>
+      <div>${p.text}</div>
+    </div>`
+  ).join('');
+}
+
+// -- FIRE WEATHER INDICES (Pro mode) --
+function renderFireIndices() {
+  const grid = APP.gridData?.properties;
+  if (!grid) return;
+
+  const tbody = document.getElementById('indicesTable');
+  const indices = [
+    { name: 'Relative Humidity', key: 'relativeHumidity', unit: '%', threshold: 25 },
+    { name: 'Wind Speed', key: 'windSpeed', unit: 'km/h', threshold: null },
+    { name: 'Wind Gust', key: 'windGust', unit: 'km/h', threshold: null },
+    { name: 'Transport Wind', key: 'transportWindSpeed', unit: 'm/s', threshold: null },
+    { name: 'Mixing Height', key: 'mixingHeight', unit: 'm', threshold: null },
+    { name: 'Haines Index', key: 'hainesIndex', unit: '', threshold: 5 },
+    { name: 'Grassland Fire Danger', key: 'grasslandFireDangerIndex', unit: '', threshold: null },
+    { name: 'Davis Stability', key: 'davisStabilityIndex', unit: '', threshold: null },
+  ];
+
+  tbody.innerHTML = indices.map(idx => {
+    const val = getCurrentValue(grid[idx.key]);
+    if (val === null) return '';
+    const displayVal = `${Math.round(val * 100) / 100} ${idx.unit}`;
+
+    // Get previous value for trend
+    const prevVal = getPreviousValue(grid[idx.key]);
+    let trend = '--';
+    if (prevVal !== null) {
+      const diff = val - prevVal;
+      if (Math.abs(diff) < 0.5) trend = '\u2192 Steady';
+      else if (diff > 0) trend = `\u2191 +${Math.round(diff)}`;
+      else trend = `\u2193 ${Math.round(diff)}`;
+    }
+
+    return `<tr>
+      <td>${idx.name}</td>
+      <td>${displayVal}</td>
+      <td>${trend}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ============================================================
+// UTILITY FUNCTIONS
+// ============================================================
+function parseDurationMs(dur) {
+  if (!dur) return 3600000; // default 1 hour
+  let ms = 0;
+  const dayMatch = dur.match(/(\d+)D/);
+  const hourMatch = dur.match(/(\d+)H/);
+  const minMatch = dur.match(/(\d+)M/);
+  if (dayMatch) ms += parseInt(dayMatch[1]) * 86400000;
+  if (hourMatch) ms += parseInt(hourMatch[1]) * 3600000;
+  if (minMatch) ms += parseInt(minMatch[1]) * 60000;
+  return ms || 3600000; // fallback 1 hour if nothing parsed
+}
+
+function getCurrentValue(dataObj) {
+  if (!dataObj || !dataObj.values || dataObj.values.length === 0) return null;
+  const now = new Date();
+  for (const v of dataObj.values) {
+    const parts = v.validTime.split('/');
+    const start = new Date(parts[0]);
+    const durationMs = parseDurationMs(parts[1]);
+    const end = new Date(start.getTime() + durationMs);
+    if (now >= start && now < end) return v.value;
+  }
+  // Return the closest future value, or last known
+  for (const v of dataObj.values) {
+    const start = new Date(v.validTime.split('/')[0]);
+    if (start > now) return v.value;
+  }
+  return dataObj.values[dataObj.values.length - 1].value;
+}
+
+function getPreviousValue(dataObj) {
+  if (!dataObj || !dataObj.values || dataObj.values.length < 2) return null;
+  const now = new Date();
+  let currentIdx = -1;
+  for (let i = 0; i < dataObj.values.length; i++) {
+    const parts = dataObj.values[i].validTime.split('/');
+    const start = new Date(parts[0]);
+    if (start <= now) currentIdx = i;
+  }
+  if (currentIdx > 0) return dataObj.values[currentIdx - 1].value;
+  return null;
+}
+
+function findRHAtTime(rhValues, targetTime) {
+  for (const v of rhValues) {
+    const parts = v.validTime.split('/');
+    const start = new Date(parts[0]);
+    const durationMs = parseDurationMs(parts[1]);
+    const end = new Date(start.getTime() + durationMs);
+    if (targetTime >= start && targetTime < end) return v.value;
+  }
+  return null;
+}
+
+function calculateFireRisk(rh, hourlyPeriod) {
+  let windSpeed = 0;
+  if (hourlyPeriod?.windSpeed) {
+    const match = hourlyPeriod.windSpeed.match(/(\d+)/);
+    if (match) windSpeed = parseInt(match[1]);
+  }
+
+  const hasRedFlag = APP.fireAlerts && APP.fireAlerts.length > 0;
+  if (hasRedFlag) return { label: 'CRITICAL', class: 'danger' };
+  if (rh !== null && rh < 10) return { label: 'EXTREME', class: 'danger' };
+  if (rh !== null && rh < 15) return { label: 'VERY HIGH', class: 'danger' };
+  if ((rh !== null && rh < 25) || windSpeed > 25) return { label: 'HIGH', class: 'warn' };
+  if ((rh !== null && rh < 40) || windSpeed > 15) return { label: 'MODERATE', class: 'warn' };
+  return { label: 'LOW', class: 'good' };
+}
+
+function getWeatherIcon(forecast, isDaytime) {
+  const f = forecast.toLowerCase();
+  if (f.includes('thunder') || f.includes('storm')) return '\u26C8';
+  if (f.includes('rain') || f.includes('shower')) return '\u{1F327}';
+  if (f.includes('snow')) return '\u{1F328}';
+  if (f.includes('fog') || f.includes('mist')) return '\u{1F32B}';
+  if (f.includes('cloud') || f.includes('overcast')) return '\u2601';
+  if (f.includes('partly') || f.includes('mostly sunny')) return '\u26C5';
+  if (f.includes('smoke')) return '\u{1F32B}';
+  if (f.includes('wind')) return '\u{1F4A8}';
+  return isDaytime ? '\u2600' : '\u{1F319}';
+}
+
+function showLoading(text) {
+  document.getElementById('loadingText').textContent = text;
+  document.getElementById('loadingOverlay').classList.add('visible');
+}
+
+function hideLoading() {
+  document.getElementById('loadingOverlay').classList.remove('visible');
+}
+
+// ============================================================
+// PRO MODE TOGGLE
+// ============================================================
+function toggleProMode() {
+  APP.proMode = !APP.proMode;
+  document.body.classList.toggle('pro-mode', APP.proMode);
+  document.getElementById('proToggle').classList.toggle('active', APP.proMode);
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+async function toggleNotifications() {
+  const btn = document.getElementById('notifBtn');
+
+  if (!('Notification' in window)) {
+    alert('Notifications are not supported in this browser.');
+    return;
+  }
+
+  if (!APP.notificationsEnabled) {
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+      APP.notificationsEnabled = true;
+      btn.classList.add('enabled');
+      scheduleDaily7amCheck();
+      // Show confirmation
+      new Notification('ForestWatch Notifications Enabled', {
+        body: 'You will receive daily fire weather updates at 7:00 AM local time.',
+        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🔥</text></svg>'
+      });
+    }
+  } else {
+    APP.notificationsEnabled = false;
+    btn.classList.remove('enabled');
+  }
+}
+
+function scheduleDaily7amCheck() {
+  // Calculate ms until next 7am
+  const now = new Date();
+  const next7am = new Date(now);
+  next7am.setHours(7, 0, 0, 0);
+  if (now >= next7am) next7am.setDate(next7am.getDate() + 1);
+
+  const msUntil = next7am - now;
+
+  setTimeout(() => {
+    if (APP.notificationsEnabled) {
+      sendDailyNotification();
+      // Then repeat every 24h
+      setInterval(() => {
+        if (APP.notificationsEnabled) sendDailyNotification();
+      }, 24 * 60 * 60 * 1000);
+    }
+  }, msUntil);
+}
+
+function sendDailyNotification() {
+  if (!APP.forestData) return;
+  const forestName = APP.forestData.properties.FORESTNAME || 'Your National Forest';
+  const rh = getCurrentValue(APP.gridData?.properties?.relativeHumidity);
+  const body = rh !== null
+    ? `Current RH: ${Math.round(rh)}%. Check ForestWatch for full conditions.`
+    : 'Tap to check today\'s fire weather conditions.';
+
+  new Notification(`${forestName} - Daily Update`, {
+    body: body,
+    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🔥</text></svg>',
+    tag: 'forestwatch-daily'
+  });
+}
+
+// ============================================================
+// SERVICE WORKER REGISTRATION
+// ============================================================
+// Only register SW when served from our own origin (localhost or deployed domain).
+// Skip in sandboxed viewers (claudeusercontent.com, file://, etc.)
+if ('serviceWorker' in navigator &&
+    window.location.protocol !== 'file:' &&
+    !window.location.hostname.includes('claudeusercontent.com')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  initMap();
+  enableMapClick();
+  // If map isn't available, auto-show the manual location panel
+  if (!APP.mapAvailable) {
+    document.getElementById('manualLocPanel').classList.add('visible');
+  }
+});
+</script>
+</body>
+</html>

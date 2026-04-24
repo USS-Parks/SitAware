@@ -1,0 +1,19 @@
+{
+  "name": "ForestWatch - Wildfire Situational Awareness",
+  "short_name": "ForestWatch",
+  "description": "National Forest-specific wildfire situational awareness with real-time weather, PAL levels, and fire danger data.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#FDF5E6",
+  "theme_color": "#1C1C1C",
+  "orientation": "portrait-primary",
+  "categories": ["weather", "utilities"],
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='96' fill='%231C1C1C'/><text x='256' y='380' text-anchor='middle' font-size='300'>🔥</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
