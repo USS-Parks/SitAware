@@ -12,6 +12,7 @@
 <style>
 :root {
   --orange: #D4702A;
+  --orange-text: #A85318;
   --orange-light: #E8934F;
   --orange-dark: #B85D1F;
   --black: #1C1C1C;
@@ -24,7 +25,7 @@
   --cream-darker: #E0D4BE;
   --red-flag: #CC2233;
   --red-flag-bg: #FDE8EB;
-  --pal-a: #4A9E6B;
+  --pal-a: #357A50;
   --pal-b: #7AB648;
   --pal-c: #E8C841;
   --pal-d: #E8853A;
@@ -141,8 +142,8 @@ html, body {
   padding: 4px;
   transition: color 0.2s;
 }
-.notif-btn:hover { color: var(--orange); }
-.notif-btn.enabled { color: var(--orange); }
+.notif-btn:hover { color: var(--orange-text); }
+.notif-btn.enabled { color: var(--orange-text); }
 
 /* MAP */
 #map-container {
@@ -305,7 +306,7 @@ html, body {
   font-weight: 600;
   text-align: right;
 }
-.data-value.warn { color: var(--orange); }
+.data-value.warn { color: var(--orange-text); }
 .data-value.danger { color: var(--red-flag); }
 .data-value.good { color: var(--forest); }
 
@@ -404,10 +405,10 @@ html, body {
   background: #D5EBD8; color: #1E4029;
 }
 .fp-day.fp-dry {
-  background: #FFF0C8; color: #8B6914;
+  background: #FFF0C8; color: #7A5C10;
 }
 .fp-day.fp-very-dry {
-  background: #FDDCB5; color: #B85D1F;
+  background: #FDDCB5; color: #924814;
 }
 .fp-day.fp-critical {
   background: #FDE8EB; color: #CC2233;
@@ -1733,7 +1734,7 @@ function renderFirePotential() {
     </div>
     <div style="font-size:11px;color:#888;margin-top:8px;font-style:italic;">
       Source: NWCG National Predictive Services &middot;
-      <a href="https://fsapps.nwcg.gov/psp/npsg/forecast/#/outlooks" target="_blank" style="color:#D4702A;">View full outlook</a>
+      <a href="https://fsapps.nwcg.gov/psp/npsg/forecast/#/outlooks" target="_blank" style="color:#A85318;">View full outlook</a>
     </div>
   `;
 }
@@ -1771,7 +1772,7 @@ function renderHumidityRecovery() {
     publicMsg = `Overnight humidity is expected to recover to <strong>${Math.round(overnightMax)}%</strong>,
       which supports fuel moisture recovery. The minimum RH today will be around <strong>${Math.round(minRH)}%</strong>.`;
   } else {
-    publicMsg = `<span style="color:var(--orange);font-weight:600;">Poor humidity recovery expected.</span>
+    publicMsg = `<span style="color:var(--orange-text);font-weight:600;">Poor humidity recovery expected.</span>
       Overnight RH only reaching <strong>${Math.round(overnightMax)}%</strong>.
       Fuels will remain dry. Minimum RH dropping to <strong>${Math.round(minRH)}%</strong>.`;
   }
@@ -1784,7 +1785,7 @@ function renderHumidityRecovery() {
     statusEl.style.color = 'var(--forest)';
   } else if (overnightMax >= 25) {
     statusEl.textContent = 'Marginal';
-    statusEl.style.color = 'var(--orange)';
+    statusEl.style.color = 'var(--orange-text)';
   } else {
     statusEl.textContent = 'Poor Recovery';
     statusEl.style.color = 'var(--red-flag)';
