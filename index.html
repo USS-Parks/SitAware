@@ -401,20 +401,29 @@ html, body {
   font-size: 10px;
   opacity: 0.85;
 }
+.fp-day.fp-nodata {
+  background: #C8C8C8; color: #1C1C1C;
+}
 .fp-day.fp-moist {
   background: #D5EBD8; color: #1E4029;
 }
 .fp-day.fp-dry {
-  background: #FFF0C8; color: #7A5C10;
+  background: #FFF5C8; color: #5C4A08;
 }
 .fp-day.fp-very-dry {
-  background: #FDDCB5; color: #924814;
+  background: #F5DEC0; color: #6B3A10;
+}
+.fp-day.fp-wind {
+  background: #B85A00; color: white;
+}
+.fp-day.fp-lightning {
+  background: #CC2233; color: white;
 }
 .fp-day.fp-critical {
-  background: #FDE8EB; color: #CC2233;
+  background: #B34700; color: white;
 }
-.fp-day.fp-extreme {
-  background: #CC2233; color: white;
+.fp-day.fp-burn {
+  background: #7B3FA0; color: white;
 }
 .fp-psa-info {
   font-size: 12px;
@@ -1665,12 +1674,15 @@ function renderFirePotential() {
   `;
 
   // Dryness code mapping
+  // NWCG Predictive Services dryness/trigger codes
   const drynessMap = {
-    1: { label: 'Moist', short: 'M', css: 'fp-moist' },
-    2: { label: 'Dry', short: 'D', css: 'fp-dry' },
-    3: { label: 'Very Dry', short: 'VD', css: 'fp-very-dry' },
-    4: { label: 'Critical', short: 'C', css: 'fp-critical' },
-    5: { label: 'Extreme', short: 'E', css: 'fp-extreme' }
+    0:  { label: 'No Data',          short: '--', css: 'fp-nodata' },
+    1:  { label: 'Little/No Risk',   short: 'M',  css: 'fp-moist' },
+    2:  { label: 'Low Risk',         short: 'D',  css: 'fp-dry' },
+    3:  { label: 'Moderate Risk',    short: 'VD', css: 'fp-very-dry' },
+    4:  { label: 'Lightning',        short: 'L',  css: 'fp-lightning' },
+    5:  { label: 'Wind Warning',     short: 'W',  css: 'fp-wind' },
+    11: { label: 'Burn Environment', short: 'B',  css: 'fp-burn' }
   };
 
   // Build the 7-day strip
@@ -1683,7 +1695,7 @@ function renderFirePotential() {
   for (let i = 1; i <= 7; i++) {
     const code = fp[`D${i}`];
     const longDesc = fp[`D${i}_LONG`] || '';
-    const info = drynessMap[code] || { label: 'Unknown', short: '?', css: 'fp-moist' };
+    const info = drynessMap[code] || { label: 'Unknown', short: '?', css: 'fp-nodata' };
 
     const dayDate = new Date(today);
     dayDate.setDate(today.getDate() + (i - 1));
@@ -1704,10 +1716,14 @@ function renderFirePotential() {
   const proDetail = document.getElementById('fpProDetail');
   const forecastDate = fp.DATE ? new Date(fp.DATE).toLocaleDateString() : '--';
 
-  // Find worst day
+  // Find worst day by severity (not raw code number)
+  const severityRank = { 0: 0, 1: 1, 2: 2, 3: 3, 5: 4, 4: 5, 11: 5 };
   let worstCode = 0;
+  let worstSeverity = 0;
   for (let i = 1; i <= 7; i++) {
-    if (fp[`D${i}`] > worstCode) worstCode = fp[`D${i}`];
+    const code = fp[`D${i}`];
+    const sev = severityRank[code] !== undefined ? severityRank[code] : 3;
+    if (sev > worstSeverity) { worstSeverity = sev; worstCode = code; }
   }
   const worstInfo = drynessMap[worstCode] || { label: 'Unknown' };
 
