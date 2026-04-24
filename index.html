@@ -367,6 +367,64 @@ html, body {
 .forecast-item .fi-temp { font-weight: 700; font-size: 16px; }
 .forecast-item .fi-rh { color: #666; font-size: 11px; margin-top: 2px; }
 
+/* 7-DAY FIRE POTENTIAL STRIP */
+.fp-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 4px 0;
+  -webkit-overflow-scrolling: touch;
+}
+.fp-day {
+  flex: 1;
+  min-width: 60px;
+  text-align: center;
+  padding: 10px 6px;
+  border-radius: 8px;
+  font-size: 12px;
+  transition: transform 0.15s ease;
+}
+.fp-day:hover { transform: scale(1.05); }
+.fp-day .fp-label {
+  font-weight: 700;
+  margin-bottom: 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+.fp-day .fp-code {
+  font-weight: 800;
+  font-size: 18px;
+  margin: 4px 0;
+}
+.fp-day .fp-desc {
+  font-size: 10px;
+  opacity: 0.85;
+}
+.fp-day.fp-moist {
+  background: #D5EBD8; color: #1E4029;
+}
+.fp-day.fp-dry {
+  background: #FFF0C8; color: #8B6914;
+}
+.fp-day.fp-very-dry {
+  background: #FDDCB5; color: #B85D1F;
+}
+.fp-day.fp-critical {
+  background: #FDE8EB; color: #CC2233;
+}
+.fp-day.fp-extreme {
+  background: #CC2233; color: white;
+}
+.fp-psa-info {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+.fp-psa-info strong {
+  color: #1C1C1C;
+}
+
 /* PRECAUTIONS LIST */
 .precaution {
   display: flex;
@@ -872,6 +930,17 @@ body.pro-mode .pub-only { display: none; }
       <div class="pro-only" id="palProDetail" style="margin-top:12px;"></div>
     </div>
 
+    <!-- 7-DAY FIRE POTENTIAL (NWCG) -->
+    <div class="card" id="firePotentialCard" style="display:none;">
+      <div class="card-header">
+        <span class="card-title">&#x1F525; 7-Day Fire Potential</span>
+        <span class="card-badge" id="fpSource" style="color:#999;font-size:11px;">NWCG Predictive Services</span>
+      </div>
+      <div class="fp-psa-info" id="fpPsaInfo"></div>
+      <div class="fp-strip" id="fpStrip"></div>
+      <div class="pro-only" id="fpProDetail" style="margin-top:12px;"></div>
+    </div>
+
     <!-- OVERNIGHT RH RECOVERY -->
     <div class="card">
       <div class="card-header">
@@ -970,6 +1039,7 @@ const APP = {
   weatherData: null,
   gridData: null,
   alertsData: null,
+  firePotentialData: null,
   notificationsEnabled: false,
 
   // USFS ArcGIS endpoint for National Forest boundaries
@@ -1116,6 +1186,8 @@ async function loadLocationData(lat, lon) {
     await fetchWeatherData();
     showLoading('Checking alerts...');
     await fetchAlerts();
+    showLoading('Fetching fire potential...');
+    await fetchFirePotential();
 
     renderAll();
 
@@ -1371,6 +1443,37 @@ async function fetchAlerts() {
 }
 
 // ============================================================
+// NWCG PREDICTIVE SERVICES - 7-DAY FIRE POTENTIAL
+// ============================================================
+async function fetchFirePotential() {
+  try {
+    const url = `https://fsapps.nwcg.gov/psp/arcgis/rest/services/npsg/PSA_GACC_KeyRAWS/MapServer/1/query`
+      + `?geometry=${APP.userLon},${APP.userLat}`
+      + `&geometryType=esriGeometryPoint`
+      + `&spatialRel=esriSpatialRelIntersects`
+      + `&outFields=*`
+      + `&returnGeometry=false`
+      + `&f=json`;
+
+    const resp = await fetchWithRetry(url);
+    if (!resp.ok) {
+      console.warn(`NWCG PSA query returned ${resp.status}`);
+      APP.firePotentialData = null;
+      return;
+    }
+    const data = await resp.json();
+    if (data.features && data.features.length > 0) {
+      APP.firePotentialData = data.features[0].attributes;
+    } else {
+      APP.firePotentialData = null;
+    }
+  } catch (err) {
+    console.error('NWCG fire potential fetch error:', err);
+    APP.firePotentialData = null;
+  }
+}
+
+// ============================================================
 // RENDER ALL DATA
 // ============================================================
 function renderAll() {
@@ -1378,6 +1481,7 @@ function renderAll() {
   renderRedFlagAlerts();
   renderCurrentConditions();
   renderPAL();
+  renderFirePotential();
   renderHumidityRecovery();
   renderForecast();
   renderPrecautions();
@@ -1539,77 +1643,99 @@ function renderPAL() {
   `;
 }
 
-function determinePAL(rh, hourly) {
-  // PAL determination based on fire weather conditions
-  // This is a simplified model - production would pull from actual forest dispatch
-  let windSpeed = 0;
-  if (hourly?.windSpeed) {
-    const match = hourly.windSpeed.match(/(\d+)/);
-    if (match) windSpeed = parseInt(match[1]);
+// -- 7-DAY FIRE POTENTIAL (NWCG Predictive Services) --
+function renderFirePotential() {
+  const card = document.getElementById('firePotentialCard');
+  const fp = APP.firePotentialData;
+
+  if (!fp) {
+    card.style.display = 'none';
+    return;
   }
 
-  const hasRedFlag = APP.fireAlerts && APP.fireAlerts.length > 0;
+  card.style.display = 'block';
 
-  if (hasRedFlag || (rh !== null && rh < 10) || windSpeed > 35) {
-    return {
-      level: 'E', levelName: 'Extreme',
-      nfdrsRating: 'Extreme',
-      description: 'Extreme fire danger conditions exist. All project activity is <strong>shut down</strong>. Critical fire weather is in effect.',
-      restrictions: [
-        { icon: '\u26D4', text: 'ALL project activity suspended. No exceptions.' },
-        { icon: '\u{1F6A8}', text: 'Industrial operations prohibited in wildland areas.' },
-        { icon: '\u{1F4DE}', text: 'Contact local dispatch before ANY field activity.' },
-        { icon: '\u{1F6B7}', text: 'Public use restrictions likely in effect. Check forest orders.' }
-      ]
-    };
-  } else if ((rh !== null && rh < 15) || windSpeed > 25) {
-    return {
-      level: 'D', levelName: 'Very High',
-      nfdrsRating: 'Very High',
-      description: 'Very high fire danger. Significant restrictions on project activity. Fire suppression resources on high alert.',
-      restrictions: [
-        { icon: '\u26A0', text: 'Most mechanical operations restricted or require fire watch.' },
-        { icon: '\u{1F9EF}', text: 'Welding and grinding prohibited without exemption.' },
-        { icon: '\u{1F4A7}', text: 'Water tenders must be on-site for any approved activity.' },
-        { icon: '\u{1F440}', text: 'Extended fire watch required after all operations cease.' }
-      ]
-    };
-  } else if ((rh !== null && rh < 25) || windSpeed > 15) {
-    return {
-      level: 'C', levelName: 'High',
-      nfdrsRating: 'High',
-      description: 'High fire danger. Project activities permitted with additional precautions and fire prevention measures.',
-      restrictions: [
-        { icon: '\u26A0', text: 'Chainsaws require spark arrestors and fire extinguishers.' },
-        { icon: '\u23F0', text: 'Hoot owl restrictions may apply (shutdown by 1:00 PM).' },
-        { icon: '\u{1F9EF}', text: 'Hot work requires fire watch and water source.' },
-        { icon: '\u{1F4CB}', text: 'File activity report with local dispatch daily.' }
-      ]
-    };
-  } else if ((rh !== null && rh < 40) || windSpeed > 10) {
-    return {
-      level: 'B', levelName: 'Moderate',
-      nfdrsRating: 'Moderate',
-      description: 'Moderate fire danger. Standard fire prevention measures required for all project activities.',
-      restrictions: [
-        { icon: '\u2705', text: 'Most project activities permitted with standard precautions.' },
-        { icon: '\u{1F9EF}', text: 'Fire tools and water required at all work sites.' },
-        { icon: '\u{1F4CB}', text: 'Maintain awareness of changing conditions throughout the day.' },
-        { icon: '\u{1F6AC}', text: 'No smoking outside enclosed vehicles or designated areas.' }
-      ]
-    };
-  } else {
-    return {
-      level: 'A', levelName: 'Low',
-      nfdrsRating: 'Low',
-      description: 'Low fire danger. Normal project activities permitted. Standard fire prevention measures apply.',
-      restrictions: [
-        { icon: '\u2705', text: 'All project activities permitted under normal operating procedures.' },
-        { icon: '\u{1F9EF}', text: 'Standard fire prevention equipment required.' },
-        { icon: '\u{1F4CB}', text: 'Monitor conditions; fire danger can change rapidly.' }
-      ]
-    };
+  // PSA info
+  const psaInfo = document.getElementById('fpPsaInfo');
+  psaInfo.innerHTML = `
+    <strong>${fp.PSA_NAME || '--'}</strong> Predictive Service Area
+    &middot; <strong>${fp.GACC_Label || fp.gacc || '--'}</strong> GACC
+    &middot; PSA Code: ${fp.NAT_CODE || '--'}
+  `;
+
+  // Dryness code mapping
+  const drynessMap = {
+    1: { label: 'Moist', short: 'M', css: 'fp-moist' },
+    2: { label: 'Dry', short: 'D', css: 'fp-dry' },
+    3: { label: 'Very Dry', short: 'VD', css: 'fp-very-dry' },
+    4: { label: 'Critical', short: 'C', css: 'fp-critical' },
+    5: { label: 'Extreme', short: 'E', css: 'fp-extreme' }
+  };
+
+  // Build the 7-day strip
+  const strip = document.getElementById('fpStrip');
+  strip.innerHTML = '';
+
+  const today = new Date();
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  for (let i = 1; i <= 7; i++) {
+    const code = fp[`D${i}`];
+    const longDesc = fp[`D${i}_LONG`] || '';
+    const info = drynessMap[code] || { label: 'Unknown', short: '?', css: 'fp-moist' };
+
+    const dayDate = new Date(today);
+    dayDate.setDate(today.getDate() + (i - 1));
+    const dayLabel = i === 1 ? 'Today' : dayNames[dayDate.getDay()];
+
+    const el = document.createElement('div');
+    el.className = `fp-day ${info.css}`;
+    el.innerHTML = `
+      <div class="fp-label">${dayLabel}</div>
+      <div class="fp-code">${info.short}</div>
+      <div class="fp-desc">${info.label}</div>
+    `;
+    el.title = `Day ${i}: ${longDesc || info.label} (Code ${code})`;
+    strip.appendChild(el);
   }
+
+  // Pro mode detail
+  const proDetail = document.getElementById('fpProDetail');
+  const forecastDate = fp.DATE ? new Date(fp.DATE).toLocaleDateString() : '--';
+
+  // Find worst day
+  let worstCode = 0;
+  for (let i = 1; i <= 7; i++) {
+    if (fp[`D${i}`] > worstCode) worstCode = fp[`D${i}`];
+  }
+  const worstInfo = drynessMap[worstCode] || { label: 'Unknown' };
+
+  proDetail.innerHTML = `
+    <div class="data-row">
+      <span class="data-label">PSA Unit ID</span>
+      <span class="data-value">${fp.Unit_ID || '--'}</span>
+    </div>
+    <div class="data-row">
+      <span class="data-label">NAT Code</span>
+      <span class="data-value">${fp.NAT_CODE || '--'}</span>
+    </div>
+    <div class="data-row">
+      <span class="data-label">GACC</span>
+      <span class="data-value">${fp.GACC_Label || fp.gacc || '--'}</span>
+    </div>
+    <div class="data-row">
+      <span class="data-label">Forecast Date</span>
+      <span class="data-value">${forecastDate}</span>
+    </div>
+    <div class="data-row">
+      <span class="data-label">Peak Severity (7-day)</span>
+      <span class="data-value">${worstInfo.label} (Code ${worstCode})</span>
+    </div>
+    <div style="font-size:11px;color:#888;margin-top:8px;font-style:italic;">
+      Source: NWCG National Predictive Services &middot;
+      <a href="https://fsapps.nwcg.gov/psp/npsg/forecast/#/outlooks" target="_blank" style="color:#D4702A;">View full outlook</a>
+    </div>
+  `;
 }
 
 // -- HUMIDITY RECOVERY --
@@ -1929,6 +2055,79 @@ function showLoading(text) {
 
 function hideLoading() {
   document.getElementById('loadingOverlay').classList.remove('visible');
+}
+
+function determinePAL(rh, hourly) {
+  // PAL determination based on fire weather conditions
+  // This is a simplified model - production would pull from actual forest dispatch
+  let windSpeed = 0;
+  if (hourly?.windSpeed) {
+    const match = hourly.windSpeed.match(/(\d+)/);
+    if (match) windSpeed = parseInt(match[1]);
+  }
+
+  const hasRedFlag = APP.fireAlerts && APP.fireAlerts.length > 0;
+
+  if (hasRedFlag || (rh !== null && rh < 10) || windSpeed > 35) {
+    return {
+      level: 'E', levelName: 'Extreme',
+      nfdrsRating: 'Extreme',
+      description: 'Extreme fire danger conditions exist. All project activity is <strong>shut down</strong>. Critical fire weather is in effect.',
+      restrictions: [
+        { icon: '\u26D4', text: 'ALL project activity suspended. No exceptions.' },
+        { icon: '\u{1F6A8}', text: 'Industrial operations prohibited in wildland areas.' },
+        { icon: '\u{1F4DE}', text: 'Contact local dispatch before ANY field activity.' },
+        { icon: '\u{1F6B7}', text: 'Public use restrictions likely in effect. Check forest orders.' }
+      ]
+    };
+  } else if ((rh !== null && rh < 15) || windSpeed > 25) {
+    return {
+      level: 'D', levelName: 'Very High',
+      nfdrsRating: 'Very High',
+      description: 'Very high fire danger. Significant restrictions on project activity. Fire suppression resources on high alert.',
+      restrictions: [
+        { icon: '\u26A0', text: 'Most mechanical operations restricted or require fire watch.' },
+        { icon: '\u{1F9EF}', text: 'Welding and grinding prohibited without exemption.' },
+        { icon: '\u{1F4A7}', text: 'Water tenders must be on-site for any approved activity.' },
+        { icon: '\u{1F440}', text: 'Extended fire watch required after all operations cease.' }
+      ]
+    };
+  } else if ((rh !== null && rh < 25) || windSpeed > 15) {
+    return {
+      level: 'C', levelName: 'High',
+      nfdrsRating: 'High',
+      description: 'High fire danger. Project activities permitted with additional precautions and fire prevention measures.',
+      restrictions: [
+        { icon: '\u26A0', text: 'Chainsaws require spark arrestors and fire extinguishers.' },
+        { icon: '\u23F0', text: 'Hoot owl restrictions may apply (shutdown by 1:00 PM).' },
+        { icon: '\u{1F9EF}', text: 'Hot work requires fire watch and water source.' },
+        { icon: '\u{1F4CB}', text: 'File activity report with local dispatch daily.' }
+      ]
+    };
+  } else if ((rh !== null && rh < 40) || windSpeed > 10) {
+    return {
+      level: 'B', levelName: 'Moderate',
+      nfdrsRating: 'Moderate',
+      description: 'Moderate fire danger. Standard fire prevention measures required for all project activities.',
+      restrictions: [
+        { icon: '\u2705', text: 'Most project activities permitted with standard precautions.' },
+        { icon: '\u{1F9EF}', text: 'Fire tools and water required at all work sites.' },
+        { icon: '\u{1F4CB}', text: 'Maintain awareness of changing conditions throughout the day.' },
+        { icon: '\u{1F6AC}', text: 'No smoking outside enclosed vehicles or designated areas.' }
+      ]
+    };
+  } else {
+    return {
+      level: 'A', levelName: 'Low',
+      nfdrsRating: 'Low',
+      description: 'Low fire danger. Normal project activities permitted. Standard fire prevention measures apply.',
+      restrictions: [
+        { icon: '\u2705', text: 'All project activities permitted under normal operating procedures.' },
+        { icon: '\u{1F9EF}', text: 'Standard fire prevention equipment required.' },
+        { icon: '\u{1F4CB}', text: 'Monitor conditions; fire danger can change rapidly.' }
+      ]
+    };
+  }
 }
 
 // ============================================================
