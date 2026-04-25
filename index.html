@@ -1127,8 +1127,8 @@ body.light-mode .skeleton {
   <div class="empty-state" id="emptyState">
     <div class="es-icon"><img src="icon-512.png" width="180" height="180" alt="Swivel-Head Pro"></div>
     <h3>Welcome to Swivel-Head Pro</h3>
-    <p>Tap the locate button to get wildfire situational awareness for your area.</p>
-    <p style="margin-top:12px;font-size:13px;color:rgba(240,237,228,0.5);">GPS not working? Click the map, or use the manual entry panel.</p>
+    <p>Finding your location automatically...</p>
+    <p style="margin-top:12px;font-size:13px;color:rgba(240,237,228,0.5);">GPS not working? Tap the map to drop a pin, or use the manual entry panel.</p>
   </div>
 
   <!-- DATA PANELS (hidden until data loads) -->
@@ -1575,23 +1575,12 @@ function populateForestDropdown() {
   const sel = document.getElementById('forestSelect');
   sel.innerHTML = '<option value="">-- Choose a Public Land Area --</option>';
   if (APP.userLat === null || APP.userLon === null) {
-    // No location yet - show all grouped by type
-    const groups = {};
-    LOCATIONS.forEach(loc => {
-      if (!groups[loc.type]) groups[loc.type] = [];
-      groups[loc.type].push(loc);
-    });
-    Object.keys(groups).sort().forEach(type => {
-      const optgroup = document.createElement('optgroup');
-      optgroup.label = type;
-      groups[type].sort((a, b) => a.name.localeCompare(b.name)).forEach(loc => {
-        const opt = document.createElement('option');
-        opt.value = `${loc.lat},${loc.lon}`;
-        opt.textContent = loc.name;
-        optgroup.appendChild(opt);
-      });
-      sel.appendChild(optgroup);
-    });
+    // No location yet - prompt user to set location first
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'Tap the map or use Locate Me to see nearby areas';
+    opt.disabled = true;
+    sel.appendChild(opt);
   } else {
     // Filter to 50 miles, sorted by distance
     const nearby = getNearbyLocations(APP.userLat, APP.userLon, THRESHOLDS.MAX_NEARBY_DISTANCE_MI);
@@ -1690,12 +1679,12 @@ async function geolocateUser() {
   const onForeignHost = window.location.hostname.includes('claudeusercontent.com');
 
   if (!navigator.geolocation || onForeignHost || (inIframe && window.isSecureContext === false)) {
-    showLocationError('GPS is not available in this viewer. Select a location or enter coordinates below.');
+    showLocationError('GPS not available. Tap anywhere on the map to set your location, or enter coordinates below.');
     document.getElementById('locPanel').classList.add('visible');
     return;
   }
   if (window.isSecureContext === false) {
-    showLocationError('GPS requires HTTPS or localhost. Enter coordinates below.');
+    showLocationError('GPS requires HTTPS. Tap the map to set your location, or enter coordinates below.');
     document.getElementById('locPanel').classList.add('visible');
     return;
   }
@@ -1714,13 +1703,13 @@ async function geolocateUser() {
     const errStr = String(err.message || err).toLowerCase();
     let msg;
     if (errStr.includes('permissions policy') || errStr.includes('permission denied') || err.code === 1) {
-      msg = 'GPS is blocked. Select a location from the search or enter coordinates.';
+      msg = 'GPS blocked by browser. Tap anywhere on the map to drop a pin, or enter coordinates below.';
     } else if (err.code === 2) {
-      msg = 'Location unavailable (GPS/network error). Try manual entry.';
+      msg = 'Location unavailable. Tap the map to set your location, or enter coordinates below.';
     } else if (err.code === 3) {
-      msg = 'Location request timed out. Try manual entry.';
+      msg = 'Location request timed out. Tap the map to set your location, or enter coordinates below.';
     } else {
-      msg = 'GPS unavailable. Select a location or enter coordinates below.';
+      msg = 'GPS unavailable. Tap the map to drop a pin, or enter coordinates below.';
     }
     showLocationError(msg);
     document.getElementById('locPanel').classList.add('visible');
@@ -2691,6 +2680,49 @@ document.addEventListener('DOMContentLoaded', () => {
   document.body.classList.add('pro-mode');
   const proGrid = document.getElementById('metricGridPro');
   if (proGrid) proGrid.style.display = 'grid';
+
+  // Auto-geolocate on page load - no tap required
+  geolocateUser();
+});
+</script>
+</body>
+</html>
+put', function() {
+    filterLocationsBySearch(this.value);
+  });
+
+  // Toggles
+  document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+
+  // Keyboard support for toggle
+  document.getElementById('themeToggle').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.click(); }
+  });
+
+  // Error retry
+  document.getElementById('errorRetry').addEventListener('click', () => {
+    if (APP.userLat !== null && APP.userLon !== null) {
+      hideErrorBanner();
+      loadLocationData(APP.userLat, APP.userLon);
+    }
+  });
+
+  // Auto-show manual panel if map not available
+  if (!APP.mapAvailable) {
+    document.getElementById('locPanel').classList.add('visible');
+  }
+
+  // Set initial toggle states
+  document.getElementById('themeToggle').setAttribute('aria-checked', 'true');
+
+  // Pro mode starts enabled (matching original default)
+  APP.proMode = true;
+  document.body.classList.add('pro-mode');
+  const proGrid = document.getElementById('metricGridPro');
+  if (proGrid) proGrid.style.display = 'grid';
+
+  // Auto-geolocate on page load - no tap required
+  geolocateUser();
 });
 </script>
 </body>
