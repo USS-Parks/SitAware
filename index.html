@@ -892,7 +892,8 @@ body.light-mode .skeleton {
   <div class="empty-state" id="emptyState">
     <div class="es-icon"><img src="icon-512.png" width="180" height="180" alt="Swivel-Head Pro"></div>
     <h3>Welcome to Swivel-Head Pro</h3>
-    <p>Tap anywhere on the map above to get wildfire situational awareness for your area.</p>
+    <p>Finding your location...</p>
+    <p style="margin-top:12px;font-size:13px;color:rgba(240,237,228,0.5);">If GPS is unavailable, tap anywhere on the map to set your location.</p>
   </div>
 
   <!-- DATA PANELS (hidden until data loads) -->
@@ -1438,48 +1439,27 @@ function initMap() {
 // GEOLOCATION
 // ============================================================
 async function geolocateUser() {
-  const btn = document.getElementById('locateBtn');
   const inIframe = window.self !== window.top;
   const onForeignHost = window.location.hostname.includes('claudeusercontent.com');
 
-  if (!navigator.geolocation || onForeignHost || (inIframe && window.isSecureContext === false)) {
-    showLocationError('GPS not available. Tap anywhere on the map to set your location, or enter coordinates below.');
-    document.getElementById('locPanel').classList.add('visible');
-    return;
-  }
-  if (window.isSecureContext === false) {
-    showLocationError('GPS requires HTTPS. Tap the map to set your location, or enter coordinates below.');
-    document.getElementById('locPanel').classList.add('visible');
+  // If GPS isn't possible, just show the map tap hint
+  if (!navigator.geolocation || onForeignHost || (inIframe && window.isSecureContext === false) || window.isSecureContext === false) {
     return;
   }
 
-  btn.classList.add('loading');
   showLoading('Finding your location...');
 
   try {
     const pos = await new Promise((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true, timeout: 15000, maximumAge: 60000
+        enableHighAccuracy: false, timeout: 10000, maximumAge: 300000
       });
     });
     await loadLocationData(pos.coords.latitude, pos.coords.longitude);
   } catch (err) {
-    const errStr = String(err.message || err).toLowerCase();
-    let msg;
-    if (errStr.includes('permissions policy') || errStr.includes('permission denied') || err.code === 1) {
-      msg = 'GPS blocked by browser. Tap anywhere on the map to drop a pin, or enter coordinates below.';
-    } else if (err.code === 2) {
-      msg = 'Location unavailable. Tap the map to set your location, or enter coordinates below.';
-    } else if (err.code === 3) {
-      msg = 'Location request timed out. Tap the map to set your location, or enter coordinates below.';
-    } else {
-      msg = 'GPS unavailable. Tap the map to drop a pin, or enter coordinates below.';
-    }
-    showLocationError(msg);
-    document.getElementById('locPanel').classList.add('visible');
+    // GPS failed silently - map tap hint is already visible as fallback
+    console.log('GPS unavailable, use map tap:', err.message || err);
     hideLoading();
-  } finally {
-    btn.classList.remove('loading');
   }
 }
 
@@ -2423,6 +2403,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const proGrid = document.getElementById('metricGridPro');
   if (proGrid) proGrid.style.display = 'grid';
 
+  // Auto-geolocate on load - if GPS fails, map tap hint is already visible
+  geolocateUser();
 });
 </script>
 </body>
