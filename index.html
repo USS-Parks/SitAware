@@ -1665,27 +1665,85 @@ async function fetchAlerts() {
 // NWCG PREDICTIVE SERVICES - 7-DAY FIRE POTENTIAL
 // ============================================================
 async function fetchFirePotential() {
+  // Dryness code long descriptions (used in tooltips)
+  const codeLongDesc = {
+    0: 'No Data', 1: 'Little/No Risk', 2: 'Low Risk (Dry)',
+    3: 'Moderate Risk (Very Dry)', 4: 'Lightning Activity Expected',
+    5: 'Wind Warning', 11: 'Burn Environment'
+  };
+
   try {
-    const url = `https://fsapps.nwcg.gov/psp/arcgis/rest/services/npsg/PSA_GACC_KeyRAWS/MapServer/1/query`
+    // 1) Fetch PSA metadata (boundaries layer - static, always accurate)
+    const psaUrl = `https://fsapps.nwcg.gov/psp/arcgis/rest/services/npsg/PSA_GACC_KeyRAWS/MapServer/1/query`
       + `?geometry=${APP.userLon},${APP.userLat}`
       + `&geometryType=esriGeometryPoint`
       + `&spatialRel=esriSpatialRelIntersects`
-      + `&outFields=*`
-      + `&returnGeometry=false`
-      + `&f=json`;
+      + `&outFields=PSA_NAME,NAT_CODE,GACC_Label,Unit_ID`
+      + `&returnGeometry=false&f=json`;
 
-    const resp = await fetchWithRetry(url);
-    if (!resp.ok) {
-      console.warn(`NWCG PSA query returned ${resp.status}`);
+    // 2) Fetch 7-day forecast from outlooks_forecast (layers 0-6 = Day 1-7)
+    const forecastBase = 'https://fsapps.nwcg.gov/psp/arcgis/rest/services/npsg/outlooks_forecast/MapServer';
+    const dayUrls = [];
+    for (let i = 0; i < 7; i++) {
+      dayUrls.push(
+        `${forecastBase}/${i}/query`
+        + `?geometry=${APP.userLon},${APP.userLat}`
+        + `&geometryType=esriGeometryPoint`
+        + `&spatialRel=esriSpatialRelIntersects`
+        + `&outFields=drynesscode,timestampdate,nat_code,gacc_name`
+        + `&returnGeometry=false&f=json`
+      );
+    }
+
+    // Fire all 8 requests in parallel
+    const [psaResp, ...dayResps] = await Promise.all([
+      fetchWithRetry(psaUrl),
+      ...dayUrls.map(u => fetchWithRetry(u))
+    ]);
+
+    // Parse PSA metadata
+    let psaMeta = {};
+    if (psaResp.ok) {
+      const psaData = await psaResp.json();
+      if (psaData.features && psaData.features.length > 0) {
+        psaMeta = psaData.features[0].attributes;
+      }
+    }
+
+    // Parse each day's forecast
+    const dayResults = await Promise.all(dayResps.map(async (r) => {
+      if (!r.ok) return null;
+      const d = await r.json();
+      return (d.features && d.features.length > 0) ? d.features[0].attributes : null;
+    }));
+
+    // Check we got at least one valid day
+    if (dayResults.every(d => d === null)) {
+      console.warn('NWCG outlooks_forecast returned no data for any day');
       APP.firePotentialData = null;
       return;
     }
-    const data = await resp.json();
-    if (data.features && data.features.length > 0) {
-      APP.firePotentialData = data.features[0].attributes;
-    } else {
-      APP.firePotentialData = null;
+
+    // Build a unified object that matches the shape renderFirePotential expects
+    const fp = {
+      PSA_NAME:   psaMeta.PSA_NAME   || '',
+      NAT_CODE:   psaMeta.NAT_CODE   || (dayResults[0] && dayResults[0].nat_code) || '',
+      GACC_Label: psaMeta.GACC_Label || '',
+      gacc:       (dayResults[0] && dayResults[0].gacc_name) || '',
+      Unit_ID:    psaMeta.Unit_ID    || '',
+      DATE:       dayResults[0] ? dayResults[0].timestampdate : Date.now()
+    };
+
+    for (let i = 0; i < 7; i++) {
+      const day = dayResults[i];
+      const code = day ? day.drynesscode : 0;
+      fp[`D${i + 1}`] = code;
+      fp[`D${i + 1}_LONG`] = codeLongDesc[code] || 'Unknown';
+      fp[`D${i + 1}_DATE`] = day ? day.timestampdate : null;
     }
+
+    APP.firePotentialData = fp;
+
   } catch (err) {
     console.error('NWCG fire potential fetch error:', err);
     APP.firePotentialData = null;
@@ -1910,21 +1968,29 @@ function renderFirePotential() {
     11: { label: 'Burn Environment', short: 'Burn',      css: 'fp-burn' }
   };
 
-  // Build the 7-day strip
+  // Build the 7-day strip using actual forecast dates from NWCG
   const strip = document.getElementById('fpStrip');
   strip.innerHTML = '';
 
-  const today = new Date();
   const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const todayStr = new Date().toDateString();
 
   for (let i = 1; i <= 7; i++) {
     const code = fp[`D${i}`];
     const longDesc = fp[`D${i}_LONG`] || '';
     const info = drynessMap[code] || { label: 'Unknown', short: '?', css: 'fp-nodata' };
 
-    const dayDate = new Date(today);
-    dayDate.setDate(today.getDate() + (i - 1));
-    const dayLabel = i === 1 ? 'Today' : dayNames[dayDate.getDay()];
+    // Use actual forecast timestamp from NWCG endpoint
+    const ts = fp[`D${i}_DATE`];
+    let dayLabel;
+    let dateStr = '';
+    if (ts) {
+      const dayDate = new Date(ts);
+      dateStr = dayDate.toLocaleDateString();
+      dayLabel = (dayDate.toDateString() === todayStr) ? 'Today' : dayNames[dayDate.getDay()];
+    } else {
+      dayLabel = `Day ${i}`;
+    }
 
     const el = document.createElement('div');
     el.className = `fp-day ${info.css}`;
@@ -1933,13 +1999,23 @@ function renderFirePotential() {
       <div class="fp-code">${info.short}</div>
       <div class="fp-desc">${info.label}</div>
     `;
-    el.title = `Day ${i}: ${longDesc || info.label} (Code ${code})`;
+    el.title = `${dateStr ? dateStr + ': ' : ''}${longDesc || info.label} (Code ${code})`;
     strip.appendChild(el);
   }
 
   // Pro mode detail
   const proDetail = document.getElementById('fpProDetail');
-  const forecastDate = fp.DATE ? new Date(fp.DATE).toLocaleDateString() : '--';
+  // Show actual forecast date range from NWCG timestamps
+  let forecastDate = '--';
+  if (fp.D1_DATE) {
+    const startDate = new Date(fp.D1_DATE).toLocaleDateString();
+    const endTs = fp.D7_DATE || fp.D6_DATE || fp.D5_DATE;
+    if (endTs) {
+      forecastDate = `${startDate} \u2013 ${new Date(endTs).toLocaleDateString()}`;
+    } else {
+      forecastDate = startDate;
+    }
+  }
 
   // Find worst day by severity (not raw code number)
   const severityRank = { 0: 0, 1: 1, 2: 2, 3: 3, 5: 4, 4: 5, 11: 5 };
