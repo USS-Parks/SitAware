@@ -13,7 +13,7 @@
   script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
   style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
   img-src 'self' https://*.tile.openstreetmap.org https://cdnjs.cloudflare.com data:;
-  connect-src https://api.weather.gov https://apps.fs.usda.gov https://services9.arcgis.com https://fsapps.nwcg.gov https://gis.blm.gov https://tigerweb.geo.census.gov;
+  connect-src https://api.weather.gov https://apps.fs.usda.gov https://services9.arcgis.com https://fsapps.nwcg.gov https://gis.blm.gov https://tigerweb.geo.census.gov https://ipwho.is;
   manifest-src 'self';
   worker-src 'self';
   font-src 'self';
@@ -1522,36 +1522,117 @@ function gpsFailFallback() {
   if (hint) hint.classList.add('pulse');
 }
 
+async function tryIPFallback() {
+  try {
+    const ipResp = await fetch('https://ipwho.is/');
+    const ipData = await ipResp.json();
+    if (ipData.success && ipData.latitude && ipData.longitude) {
+      await loadLocationData(ipData.latitude, ipData.longitude);
+      return true;
+    }
+  } catch (ipErr) {
+    console.log('IP geolocation failed:', ipErr);
+  }
+  return false;
+}
+
 async function geolocateUser() {
   const inIframe = window.self !== window.top;
   const onForeignHost = window.location.hostname.includes('claudeusercontent.com');
 
-  // If GPS isn't possible, go straight to map tap
+  // If GPS API isn't available at all, IP fallback then map tap
   if (!navigator.geolocation || onForeignHost || (inIframe && window.isSecureContext === false) || window.isSecureContext === false) {
+    const prompt = document.getElementById('locPrompt');
+    if (prompt) prompt.style.display = 'none';
+    const msg = document.getElementById('emptyMsg');
+    if (msg) msg.textContent = 'Finding your location...';
+    showLoading('Finding your location...');
+    if (await tryIPFallback()) return;
+    hideLoading();
     gpsFailFallback();
     return;
   }
 
-  // Hide prompt once GPS is attempted
+  // Hide custom prompt, show loading
   const prompt = document.getElementById('locPrompt');
   if (prompt) prompt.style.display = 'none';
   const msg = document.getElementById('emptyMsg');
   if (msg) msg.textContent = 'Finding your location...';
-
   showLoading('Finding your location...');
 
+  // --- Attempt 1: getCurrentPosition with HIGH accuracy ---
+  // enableHighAccuracy: true activates GPS hardware on mobile (what Watch Duty uses)
+  // 20-second timeout gives time for: browser permission prompt + GPS cold start + satellite acquisition
   try {
     const pos = await new Promise((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: false, timeout: 10000, maximumAge: 300000
+        enableHighAccuracy: true, timeout: 20000, maximumAge: 300000
       });
     });
+    console.log('GPS fix (high accuracy):', pos.coords.latitude, pos.coords.longitude, 'accuracy:', pos.coords.accuracy, 'm');
     await loadLocationData(pos.coords.latitude, pos.coords.longitude);
+    return;
   } catch (err) {
-    console.log('GPS unavailable, use map tap:', err.message || err);
-    hideLoading();
-    gpsFailFallback();
+    console.log('High-accuracy GPS failed:', err.code, err.message);
+    // error.code 1 = PERMISSION_DENIED: user or browser blocked it, no point retrying GPS
+    if (err.code === 1) {
+      console.log('Permission denied, falling back to IP');
+      if (await tryIPFallback()) return;
+      hideLoading();
+      gpsFailFallback();
+      return;
+    }
   }
+
+  // --- Attempt 2: watchPosition (more persistent, succeeds when getCurrentPosition times out) ---
+  // Uses high accuracy still but watchPosition keeps listening for a fix instead of giving up
+  try {
+    const pos = await new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        navigator.geolocation.clearWatch(watchId);
+        reject(new Error('watchPosition timeout after 20s'));
+      }, 20000);
+      const watchId = navigator.geolocation.watchPosition(
+        function(position) {
+          clearTimeout(timeoutId);
+          navigator.geolocation.clearWatch(watchId);
+          resolve(position);
+        },
+        function(error) {
+          clearTimeout(timeoutId);
+          navigator.geolocation.clearWatch(watchId);
+          reject(error);
+        },
+        { enableHighAccuracy: true, maximumAge: 300000 }
+      );
+    });
+    console.log('GPS fix (watchPosition):', pos.coords.latitude, pos.coords.longitude, 'accuracy:', pos.coords.accuracy, 'm');
+    await loadLocationData(pos.coords.latitude, pos.coords.longitude);
+    return;
+  } catch (err2) {
+    console.log('watchPosition failed:', err2.code || '', err2.message || err2);
+  }
+
+  // --- Attempt 3: low accuracy fallback (cell tower / wifi triangulation) ---
+  try {
+    const pos = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: false, timeout: 10000, maximumAge: 600000
+      });
+    });
+    console.log('GPS fix (low accuracy):', pos.coords.latitude, pos.coords.longitude, 'accuracy:', pos.coords.accuracy, 'm');
+    await loadLocationData(pos.coords.latitude, pos.coords.longitude);
+    return;
+  } catch (err3) {
+    console.log('Low-accuracy GPS failed:', err3.code, err3.message);
+  }
+
+  // --- Attempt 4: IP-based geolocation (city-level, last resort before map tap) ---
+  if (await tryIPFallback()) return;
+
+  // --- All methods exhausted ---
+  hideLoading();
+  gpsFailFallback();
 }
 
 // ============================================================
@@ -2509,9 +2590,31 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('locDeny').addEventListener('click', function() {
       gpsFailFallback();
     });
-    // If user previously chose "Always", skip prompt and geolocate
+    // If user previously chose "Always", check if browser permission is already granted
+    // before auto-calling (some mobile browsers require user gesture for the permission prompt)
     if (localStorage.getItem('shp_loc_pref') === 'always') {
-      geolocateUser();
+      if (navigator.permissions) {
+        navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
+          if (result.state === 'granted') {
+            // Permission already granted, safe to auto-call without gesture
+            geolocateUser();
+          } else if (result.state === 'denied') {
+            // Browser has blocked location, clear stale preference
+            localStorage.removeItem('shp_loc_pref');
+            gpsFailFallback();
+          } else {
+            // 'prompt' state: browser will show its own dialog, needs user gesture
+            // Show our custom prompt so user taps a button (provides the gesture)
+            // The prompt is already visible by default, so do nothing
+          }
+        }).catch(function() {
+          // Permissions API query failed, just try it
+          geolocateUser();
+        });
+      } else {
+        // No Permissions API (older iOS Safari), just try it
+        geolocateUser();
+      }
     }
   }
 });
