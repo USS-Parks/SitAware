@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#1E3D72">
+<meta name="theme-color" content="#2E5E3E">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Swivel-Head Pro - Wildfire Situational Awareness</title>
@@ -43,7 +43,7 @@
 html, body {
   height:100%;
   font-family: var(--font);
-  background: var(--royal);
+  background: var(--forest);
   color: var(--black);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
@@ -152,7 +152,7 @@ html, body {
 #map-container {
   position: relative;
   height: 300px;
-  background: var(--royal-dark);
+  background: var(--forest-dark);
 }
 #map { height: 100%; width: 100%; z-index: 1; }
 .locate-btn {
@@ -485,59 +485,6 @@ html, body {
 }
 .pro-table tr:nth-child(even) td { background: var(--cream); }
 
-/* CAMPFIRE SAFETY WIDGET */
-.campfire-card { position: relative; overflow: hidden; }
-.campfire-verdict {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px;
-  border-radius: 8px;
-  margin-bottom: 12px;
-}
-.campfire-verdict .cf-icon { font-size: 36px; flex-shrink: 0; }
-.campfire-verdict .cf-answer {
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: 0.3px;
-}
-.campfire-verdict .cf-subtitle {
-  font-size: 13px;
-  font-weight: 400;
-  margin-top: 2px;
-  line-height: 1.4;
-}
-.campfire-verdict.cf-yes {
-  background: #D5EBD8;
-  color: #1E4029;
-}
-.campfire-verdict.cf-caution {
-  background: #FFF5C8;
-  color: #5C4A08;
-}
-.campfire-verdict.cf-no {
-  background: #FDE8EB;
-  color: #991A2A;
-}
-.cf-factors {
-  font-size: 13px;
-  line-height: 1.6;
-  color: #555;
-}
-.cf-factors .cf-factor {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 4px 0;
-}
-.cf-factors .cf-factor-icon { flex-shrink: 0; font-size: 14px; margin-top: 1px; }
-.cf-disclaimer {
-  font-size: 11px;
-  color: #999;
-  margin-top: 10px;
-  font-style: italic;
-  line-height: 1.4;
-}
 
 /* All pro content visible by default */
 .pro-only { display: block; }
@@ -807,7 +754,7 @@ body.light-mode #map-container {
 <!-- HEADER -->
 <header class="header">
   <div class="header-left">
-    <div class="header-logo">&#x1F525;</div>
+    <div class="header-logo" style="background:none;padding:0;"><svg viewBox="0 0 512 512" width="32" height="32" xmlns="http://www.w3.org/2000/svg"><rect width="512" height="512" rx="96" fill="#D4702A"/><g transform="translate(256,270)"><ellipse cx="0" cy="-10" rx="130" ry="145" fill="#F5C518"/><ellipse cx="0" cy="-155" rx="55" ry="12" fill="#F5C518"/><rect x="-55" y="-168" width="110" height="26" fill="#E8B510"/><ellipse cx="0" cy="-168" rx="55" ry="12" fill="#F5C518"/><ellipse cx="0" cy="135" rx="130" ry="10" fill="#E8B510"/><g transform="translate(-55,-60)"><path d="M0,15C3-10 10-30 18-35C12-20 8-5 15,5C18-15 25-30 30-25C25-10 22,5 25,15C28-5 32-15 35-10C32,5 28,15 20,25C12,30 5,25 0,15Z" fill="#D4702A"/><path d="M8,15C10-5 15-20 20-25C17-10 15,0 18,10C20-5 25-15 28-12C26,0 22,12 16,18C10,20 8,18 8,15Z" fill="#CC2233"/><circle cx="18" cy="5" r="4" fill="#1C1C1C"/></g><g transform="translate(55,-60)scale(-1,1)"><path d="M0,15C3-10 10-30 18-35C12-20 8-5 15,5C18-15 25-30 30-25C25-10 22,5 25,15C28-5 32-15 35-10C32,5 28,15 20,25C12,30 5,25 0,15Z" fill="#D4702A"/><path d="M8,15C10-5 15-20 20-25C17-10 15,0 18,10C20-5 25-15 28-12C26,0 22,12 16,18C10,20 8,18 8,15Z" fill="#CC2233"/><circle cx="18" cy="5" r="4" fill="#1C1C1C"/></g><path d="M-30,50Q-15,35 0,40Q15,35 30,50" stroke="#1C1C1C" stroke-width="5" stroke-linecap="round" fill="none"/></g></svg></div>
     <div>
       <div class="header-title">Swivel-Head Pro</div>
       <div class="header-subtitle">Wildfire Situational Awareness</div>
@@ -815,10 +762,10 @@ body.light-mode #map-container {
   </div>
   <div class="header-right">
     <div class="toggle-wrap">
-      <span id="themeLabel">&#x1F319;</span>
+      <span id="themeLabel">&#x1F31A;</span>
       <div class="toggle active" id="themeToggle" onclick="toggleTheme()"></div>
     </div>
-    <button class="notif-btn" id="notifBtn" onclick="toggleNotifications()" title="Daily 7am Notifications">&#x1F514;</button>
+    <!-- Notification button removed -->
   </div>
 </header>
 
@@ -1052,20 +999,6 @@ body.light-mode #map-container {
       <div class="pro-only" id="palProDetail" style="margin-top:12px;"></div>
     </div>
 
-    <!-- CAMPFIRE SAFETY (Public Mode) -->
-    <div class="card campfire-card" id="campfireCard" style="display:none;">
-      <div class="card-header">
-        <span class="card-title">&#x1F3D5; Fire Restrictions &amp; Campfire Status</span>
-        <span class="card-badge" id="campfireStatus" style="font-size:11px;"></span>
-      </div>
-      <div id="campfireVerdict"></div>
-      <div class="cf-factors" id="campfireFactors"></div>
-      <div class="cf-disclaimer">
-        Restriction data sourced from NIFC where available. Weather conditions from weather.gov.
-        Official fire restriction orders are issued by local Ranger Districts and field offices.
-        Always verify current restrictions before lighting any fire. Call your local dispatch if in doubt.
-      </div>
-    </div>
 
     <!-- 7-DAY FIRE POTENTIAL (NWCG) -->
     <div class="card" id="firePotentialCard" style="display:none;">
@@ -1180,7 +1113,6 @@ const APP = {
   gridData: null,
   alertsData: null,
   firePotentialData: null,
-  restrictionData: null,
   notificationsEnabled: false,
 
   // USFS ArcGIS endpoint for National Forest boundaries
@@ -1347,8 +1279,6 @@ async function loadLocationData(lat, lon) {
     await fetchAlerts();
     showLoading('Fetching fire potential...');
     await fetchFirePotential();
-    showLoading('Checking fire restrictions...');
-    await fetchFireRestrictions();
 
     renderAll();
 
@@ -1561,7 +1491,7 @@ async function findNearestForest() {
     if (data.features && data.features.length > 0) {
       APP.forestData = data.features[0];
       APP.forestData.properties._nearby = true;
-      drawForestBoundary(data.features[0]);
+      // Do NOT draw boundary for nearby forests -- only when user is actually inside one
     }
   } catch (err) {
     console.error('Nearest forest query error:', err);
@@ -1759,7 +1689,6 @@ function renderAll() {
   renderCurrentConditions();
   renderPAL();
   renderFirePotential();
-  renderCampfireSafety();
   renderHumidityRecovery();
   renderForecast();
   renderPrecautions();
@@ -2054,241 +1983,6 @@ function renderFirePotential() {
       <a href="https://fsapps.nwcg.gov/psp/npsg/forecast/#/outlooks" target="_blank" style="color:#A85318;">View full outlook</a>
     </div>
   `;
-}
-
-// -- CAMPFIRE & FIRE RESTRICTIONS WIDGET --
-// Queries real fire restriction data from NIFC state-level endpoints where available.
-// Falls back to constructing official links when no API data exists.
-
-// NIFC fire restriction endpoints by state (geometry-enabled FeatureServers)
-const RESTRICTION_ENDPOINTS = {
-  'ID': { url: 'https://services3.arcgis.com/T4QMspbfLg3qTGWY/ArcGIS/rest/services/Idaho_Fire_Restrictions_v2/FeatureServer/0/query', stageField: 'Stage', nameField: 'Name', areaField: 'Rstrct_Are' },
-  'NV': { url: 'https://services3.arcgis.com/T4QMspbfLg3qTGWY/ArcGIS/rest/services/Nevada_Fire_Restrictions_Public_View/FeatureServer/0/query', stageField: 'FireRestrictionStage', nameField: 'FireRestrictionZone', areaField: 'FireRestrictionArea', linkField: 'FireRestrictionOrderLink' },
-  'NM': { url: 'https://services3.arcgis.com/T4QMspbfLg3qTGWY/ArcGIS/rest/services/New_Mexico_Division_of_Forestry_Fire_Restrictions___Public/FeatureServer/0/query', stageField: 'FireRestrictionStage', nameField: 'FireRestrictionZone', areaField: 'FireRestrictionArea' },
-  'WY': { url: 'https://services3.arcgis.com/T4QMspbfLg3qTGWY/ArcGIS/rest/services/WY_County_Fire_Restrictions_(view)/FeatureServer/0/query', stageField: 'Stage', nameField: 'NAME', areaField: null }
-};
-
-// Build a URL to the official USFS forest alerts page
-function getForestRestrictionsURL() {
-  if (!APP.forestData) return null;
-  const p = APP.forestData.properties;
-  const name = p.FORESTNAME || p.forestname || '';
-  // Construct USFS URL slug from forest name (best effort)
-  const slug = name.toLowerCase()
-    .replace(/national forest/i, '').replace(/\s+nf$/i, '')
-    .trim().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-  if (!slug) return 'https://www.fs.usda.gov/visit/know-before-you-go/fire-restrictions';
-  return `https://www.fs.usda.gov/alerts/${slug}/alerts-notices`;
-}
-
-async function fetchFireRestrictions() {
-  // Determine state from weather meta or land data
-  const state = APP.weatherMeta?.state ||
-    (APP.landData?.state) || null;
-
-  if (!state) {
-    APP.restrictionData = null;
-    return;
-  }
-
-  // Map full state name to abbreviation
-  const stateAbbrs = {
-    'Idaho':'ID','Nevada':'NV','New Mexico':'NM','Wyoming':'WY',
-    'Arizona':'AZ','Colorado':'CO','Montana':'MT','Oregon':'OR',
-    'California':'CA','Washington':'WA','Utah':'UT'
-  };
-  const abbr = stateAbbrs[state] || state;
-
-  const endpoint = RESTRICTION_ENDPOINTS[abbr];
-  if (!endpoint) {
-    APP.restrictionData = { source: 'none', state: state, abbr: abbr };
-    return;
-  }
-
-  try {
-    const geomJson = encodeURIComponent(JSON.stringify({
-      x: APP.userLon, y: APP.userLat,
-      spatialReference: { wkid: 4326 }
-    }));
-
-    const url = `${endpoint.url}?geometry=${geomJson}`
-      + `&geometryType=esriGeometryPoint`
-      + `&spatialRel=esriSpatialRelIntersects`
-      + `&outFields=*&returnGeometry=false&inSR=4326&f=json`;
-
-    const resp = await fetchWithRetry(url, 1);
-    if (!resp.ok) throw new Error(`Restriction query returned ${resp.status}`);
-    const data = await resp.json();
-
-    if (data.features && data.features.length > 0) {
-      const attrs = data.features[0].attributes;
-      APP.restrictionData = {
-        source: 'nifc',
-        state: state,
-        abbr: abbr,
-        stage: attrs[endpoint.stageField] || 'Unknown',
-        zone: attrs[endpoint.nameField] || null,
-        area: endpoint.areaField ? attrs[endpoint.areaField] : null,
-        link: endpoint.linkField ? attrs[endpoint.linkField] : null
-      };
-    } else {
-      APP.restrictionData = { source: 'none', state: state, abbr: abbr };
-    }
-  } catch (err) {
-    console.error('Fire restriction query error:', err);
-    APP.restrictionData = { source: 'none', state: state, abbr: abbr };
-  }
-}
-
-function renderCampfireSafety() {
-  const card = document.getElementById('campfireCard');
-  const verdictEl = document.getElementById('campfireVerdict');
-  const factorsEl = document.getElementById('campfireFactors');
-  const statusEl = document.getElementById('campfireStatus');
-
-  // Part 1: Official Fire Restriction Status
-  const rd = APP.restrictionData;
-  const hasRedFlag = APP.fireAlerts && APP.fireAlerts.length > 0;
-  let restrictionStage = null;
-  let restrictionHTML = '';
-
-  if (rd && rd.source === 'nifc' && rd.stage) {
-    const stageLower = rd.stage.toLowerCase();
-    if (stageLower.includes('stage 2') || stageLower.includes('stage ii')) {
-      restrictionStage = 2;
-    } else if (stageLower.includes('stage 1') || stageLower.includes('stage i') || stageLower.includes('stage1')) {
-      restrictionStage = 1;
-    } else if (stageLower.includes('none') || stageLower.includes('no fire') || stageLower.includes('no restrict')) {
-      restrictionStage = 0;
-    }
-
-    let stageClass, stageIcon, stageText;
-    if (restrictionStage === 2) {
-      stageClass = 'cf-no'; stageIcon = '\u26D4';
-      stageText = 'STAGE 2 RESTRICTIONS IN EFFECT';
-    } else if (restrictionStage === 1) {
-      stageClass = 'cf-caution'; stageIcon = '\u26A0';
-      stageText = 'STAGE 1 RESTRICTIONS IN EFFECT';
-    } else if (restrictionStage === 0) {
-      stageClass = 'cf-yes'; stageIcon = '\u2705';
-      stageText = 'NO FIRE RESTRICTIONS';
-    } else {
-      stageClass = 'cf-caution'; stageIcon = '\u2139';
-      stageText = `RESTRICTION STATUS: ${rd.stage.toUpperCase()}`;
-    }
-
-    restrictionHTML = `
-      <div class="campfire-verdict ${stageClass}">
-        <div class="cf-icon">${stageIcon}</div>
-        <div>
-          <div class="cf-answer">${stageText}</div>
-          <div class="cf-subtitle">
-            ${rd.zone ? rd.zone : ''} ${rd.area ? '&mdash; ' + rd.area : ''}
-            <br>Source: NIFC Fire Restrictions (${rd.state})
-            ${rd.link ? '<br><a href="' + rd.link + '" target="_blank" style="color:inherit;text-decoration:underline;">View Official Order</a>' : ''}
-          </div>
-        </div>
-      </div>
-    `;
-  } else {
-    // No API data available -- show link to official source
-    const forestURL = getForestRestrictionsURL();
-    const generalURL = 'https://www.fs.usda.gov/visit/know-before-you-go/fire-restrictions';
-    const nifcURL = 'https://www.nifc.gov/fire-information/fire-prevention';
-    const landName = APP.forestData ?
-      (APP.forestData.properties.FORESTNAME || 'this National Forest') :
-      (APP.landData?.unitName || APP.landData?.agencyName || 'this area');
-
-    restrictionHTML = `
-      <div class="campfire-verdict cf-caution">
-        <div class="cf-icon">\u2139</div>
-        <div>
-          <div class="cf-answer">CHECK OFFICIAL RESTRICTIONS</div>
-          <div class="cf-subtitle">
-            No real-time restriction data available for ${landName}. Fire restriction orders
-            (Stage 1, Stage 2, campfire bans) are issued by the local Ranger District or field office.
-            <br><br>
-            ${forestURL ? '<a href="' + forestURL + '" target="_blank" style="color:inherit;text-decoration:underline;font-weight:600;">Check ' + landName + ' Alerts &amp; Restrictions</a><br>' : ''}
-            <a href="${generalURL}" target="_blank" style="color:inherit;text-decoration:underline;">USFS Fire Restrictions (National)</a>
-            &nbsp;&middot;&nbsp;
-            <a href="${nifcURL}" target="_blank" style="color:inherit;text-decoration:underline;">NIFC Fire Prevention</a>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  // Part 2: Weather-based risk factors
-  const rh = getCurrentValue(APP.gridData?.properties?.relativeHumidity);
-  const hourly = APP.hourlyData?.properties?.periods?.[0];
-  let windSpeed = 0;
-  if (hourly?.windSpeed) {
-    const match = hourly.windSpeed.match(/(\d+)/);
-    if (match) windSpeed = parseInt(match[1]);
-  }
-
-  const factors = [];
-
-  if (hasRedFlag) {
-    factors.push({ icon: '\u{1F6A9}', text: 'Red Flag Warning is active for this area.', weight: 'no' });
-  }
-
-  if (rh !== null && rh < 15) {
-    factors.push({ icon: '\u{1F4A7}', text: `Relative humidity critically low at ${Math.round(rh)}%.`, weight: 'no' });
-  } else if (rh !== null && rh < 25) {
-    factors.push({ icon: '\u{1F4A7}', text: `Relative humidity is low at ${Math.round(rh)}%.`, weight: 'caution' });
-  } else if (rh !== null) {
-    factors.push({ icon: '\u{1F4A7}', text: `Relative humidity at ${Math.round(rh)}%.`, weight: 'ok' });
-  }
-
-  if (windSpeed > 25) {
-    factors.push({ icon: '\u{1F4A8}', text: `Sustained winds of ${hourly.windSpeed}.`, weight: 'no' });
-  } else if (windSpeed > 15) {
-    factors.push({ icon: '\u{1F4A8}', text: `Winds at ${hourly.windSpeed}.`, weight: 'caution' });
-  } else if (windSpeed > 0) {
-    factors.push({ icon: '\u{1F4A8}', text: `Winds light at ${hourly.windSpeed}.`, weight: 'ok' });
-  }
-
-  const fp = APP.firePotentialData;
-  if (fp && fp.D1 !== undefined) {
-    const fpMap = { 4:'Lightning forecast', 5:'Wind Warning', 11:'Burn Environment' };
-    if (fpMap[fp.D1]) {
-      factors.push({ icon: '\u{1F525}', text: `NWCG: ${fpMap[fp.D1]} today.`, weight: 'no' });
-    }
-  }
-
-  // Set status badge based on restriction stage + weather
-  const worstWeight = factors.some(f => f.weight === 'no') ? 'no' :
-                      factors.some(f => f.weight === 'caution') ? 'caution' : 'ok';
-
-  if (restrictionStage === 2 || (restrictionStage === null && hasRedFlag)) {
-    statusEl.textContent = 'Restricted';
-    statusEl.style.cssText = 'color:var(--red-flag);background:var(--red-flag-bg);padding:2px 8px;border-radius:10px;font-size:11px;';
-  } else if (restrictionStage === 1 || worstWeight === 'no') {
-    statusEl.textContent = 'Caution';
-    statusEl.style.cssText = 'color:#7A5C10;background:#FFF5C8;padding:2px 8px;border-radius:10px;font-size:11px;';
-  } else if (restrictionStage === 0 && worstWeight === 'ok') {
-    statusEl.textContent = 'No Restrictions';
-    statusEl.style.cssText = 'color:var(--forest);background:#D5EBD8;padding:2px 8px;border-radius:10px;font-size:11px;';
-  } else {
-    statusEl.textContent = 'Check Status';
-    statusEl.style.cssText = 'color:#7A5C10;background:#FFF5C8;padding:2px 8px;border-radius:10px;font-size:11px;';
-  }
-
-  verdictEl.innerHTML = restrictionHTML;
-
-  // Render weather factors
-  const factorIcons = { no: '\u274C', caution: '\u{1F7E1}', ok: '\u2705' };
-  let factorsHTML = '<div style="font-size:12px;font-weight:700;color:#666;margin-top:4px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Current Weather Conditions</div>';
-  factorsHTML += factors.map(f =>
-    `<div class="cf-factor">
-      <span class="cf-factor-icon">${factorIcons[f.weight] || '\u2139'}</span>
-      <span>${f.text}</span>
-    </div>`
-  ).join('');
-  factorsEl.innerHTML = factorsHTML;
-
-  card.style.display = 'block';
 }
 
 // -- HUMIDITY RECOVERY --
@@ -2686,14 +2380,14 @@ function determinePAL(rh, hourly) {
 // ============================================================
 // DARK / LIGHT THEME TOGGLE
 // ============================================================
-// Default: dark mode (royal blue). Toggle: active = dark, inactive = light.
+// Default: dark mode (forest green). Toggle: active = dark, inactive = light.
 APP.darkMode = true;
 
 function toggleTheme() {
   APP.darkMode = !APP.darkMode;
   document.body.classList.toggle('light-mode', !APP.darkMode);
   document.getElementById('themeToggle').classList.toggle('active', APP.darkMode);
-  document.getElementById('themeLabel').innerHTML = APP.darkMode ? '\u{1F319}' : '\u2600';
+  document.getElementById('themeLabel').innerHTML = APP.darkMode ? '\u{1F31A}' : '\u{2600}\u{FE0F}';
 }
 
 // ============================================================
@@ -2716,7 +2410,7 @@ async function toggleNotifications() {
       // Show confirmation
       new Notification('Swivel-Head Pro Notifications Enabled', {
         body: 'You will receive daily fire weather updates at 7:00 AM local time.',
-        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🔥</text></svg>'
+        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="96" fill="%23D4702A"/><g transform="translate(256,270)"><ellipse rx="130" ry="145" cy="-10" fill="%23F5C518"/><g transform="translate(-55,-60)"><path d="M0,15C3-10 18-35 18-35C12-20 15,5 15,5C25-30 30-25 30-25C22,5 25,15 25,15C32-15 35-10 35-10C28,15 20,25 20,25C5,25 0,15 0,15Z" fill="%23D4702A"/><circle cx="18" cy="5" r="4" fill="%231C1C1C"/></g><g transform="translate(55,-60)scale(-1,1)"><path d="M0,15C3-10 18-35 18-35C12-20 15,5 15,5C25-30 30-25 30-25C22,5 25,15 25,15C32-15 35-10 35-10C28,15 20,25 20,25C5,25 0,15 0,15Z" fill="%23D4702A"/><circle cx="18" cy="5" r="4" fill="%231C1C1C"/></g><path d="M-30,50Q-15,35 0,40Q15,35 30,50" stroke="%231C1C1C" stroke-width="5" fill="none"/></g></svg>'
       });
     }
   } else {
@@ -2755,7 +2449,7 @@ function sendDailyNotification() {
 
   new Notification(`${forestName} - Daily Update`, {
     body: body,
-    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🔥</text></svg>',
+    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="96" fill="%23D4702A"/><g transform="translate(256,270)"><ellipse rx="130" ry="145" cy="-10" fill="%23F5C518"/><path d="M-30,50Q-15,35 0,40Q15,35 30,50" stroke="%231C1C1C" stroke-width="5" fill="none"/></g></svg>',
     tag: 'swivel-head-daily'
   });
 }
@@ -2785,3 +2479,4 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
