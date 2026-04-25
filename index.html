@@ -1632,8 +1632,8 @@ async function fetchForestData() {
   const geom = JSON.stringify({ x: APP.userLon, y: APP.userLat, spatialReference: { wkid: 4326 } });
   const params = new URLSearchParams({
     geometry: geom, geometryType: 'esriGeometryPoint', spatialRel: 'esriSpatialRelIntersects',
-    outFields: 'FORESTNAME,FORESTNUMB,FORESTNUMBER,GIS_ACRES,REGION',
-    returnGeometry: 'true', outSR: '4326', maxAllowableOffset: '0.005', inSR: '4326', f: 'geojson'
+    outFields: 'FORESTNAME,FORESTNUMB,GIS_ACRES,REGION',
+    returnGeometry: 'true', outSR: '4326', inSR: '4326', f: 'geojson'
   });
   const endpoints = [APP.USFS_URL, APP.USFS_FALLBACK_URL];
   for (const endpoint of endpoints) {
@@ -1644,8 +1644,7 @@ async function fetchForestData() {
       if (data.features && data.features.length > 0) {
         const feature = data.features[0];
         const p = feature.properties;
-        if (p.FORESTNUMB && !p.FORESTNUMBER) p.FORESTNUMBER = p.FORESTNUMB;
-        if (p.FORESTNUMBER && !p.FORESTNUMB) p.FORESTNUMB = p.FORESTNUMBER;
+        if (p.FORESTNUMB) p.FORESTNUMBER = p.FORESTNUMB;
         APP.forestData = feature;
         APP.landData = null;
         drawForestBoundary(feature);
@@ -1685,8 +1684,8 @@ async function findNearestForest() {
   });
   const params = new URLSearchParams({
     geometry: geom, geometryType: 'esriGeometryEnvelope', spatialRel: 'esriSpatialRelIntersects',
-    outFields: 'FORESTNAME,FORESTNUMB,FORESTNUMBER,GIS_ACRES,REGION',
-    returnGeometry: 'true', outSR: '4326', maxAllowableOffset: '0.005', inSR: '4326', f: 'geojson', resultRecordCount: '5'
+    outFields: 'FORESTNAME,FORESTNUMB,GIS_ACRES,REGION',
+    returnGeometry: 'true', outSR: '4326', inSR: '4326', f: 'geojson', resultRecordCount: '5'
   });
   const endpoints = [APP.USFS_URL, APP.USFS_FALLBACK_URL];
   for (const endpoint of endpoints) {
@@ -1697,7 +1696,7 @@ async function findNearestForest() {
       if (data.features && data.features.length > 0) {
         APP.forestData = data.features[0];
         const p = APP.forestData.properties;
-        if (p.FORESTNUMB && !p.FORESTNUMBER) p.FORESTNUMBER = p.FORESTNUMB;
+        if (p.FORESTNUMB) p.FORESTNUMBER = p.FORESTNUMB;
         APP.forestData.properties._nearby = true;
         return;
       }
