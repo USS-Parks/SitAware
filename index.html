@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#2E5E3E">
+<meta name="theme-color" content="#243D2E">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Swivel-Head Pro - Wildfire Situational Awareness</title>
+<title>SitAware - Wildfire Situational Awareness</title>
 <link rel="manifest" href="manifest.json">
 <meta http-equiv="Content-Security-Policy"
   content="default-src 'none';
@@ -24,57 +24,76 @@
   integrity="sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw=="
   crossorigin="anonymous" referrerpolicy="no-referrer"/>
 <style>
+/* ============================================================
+   DESIGN TOKENS
+   ============================================================ */
 :root {
   --orange: #D4702A;
   --orange-text: #A85318;
   --orange-light: #E8934F;
   --orange-dark: #B85D1F;
-  --royal: #1E3D72;
-  --royal-light: #264A88;
-  --royal-dark: #162D5A;
   --black: #1C1C1C;
   --black-soft: #2A2A2A;
-  --forest: #2E5E3E;
+  --forest: #243D2E;
+  --forest-mid: #2E5E3E;
   --forest-light: #3D7A51;
   --forest-dark: #1E4029;
-  --cream: #FDF5E6;
-  --cream-dark: #F0E6D0;
-  --cream-darker: #E0D4BE;
+  --cream: #F0EDE4;
+  --cream-dark: #E0D4BE;
+  --cream-darker: #D0C4AE;
   --red-flag: #CC2233;
+  --red-flag-dark: #AA1A2A;
   --red-flag-bg: #FDE8EB;
   --pal-a: #357A50;
   --pal-b: #7AB648;
   --pal-c: #E8C841;
   --pal-d: #E8853A;
   --pal-e: #CC2233;
+  --text-muted: #6a8a6a;
+  --text-dim: #4a6a4a;
+  --surface: #1E2A22;
+  --surface-border: #2a3a2e;
   --shadow: 0 2px 8px rgba(0,0,0,0.25);
   --shadow-lg: 0 4px 16px rgba(0,0,0,0.35);
-  --radius: 10px;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-xs: 6px;
   --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  /* Fire weather thresholds (single source of truth) */
+  --rh-critical: 15;
+  --rh-low: 25;
+  --rh-recovery: 30;
+  --wind-high: 25;
+  --wind-extreme: 35;
 }
 
-* { margin:0; padding:0; box-sizing:border-box; }
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
 html, body {
-  height:100%;
+  height: 100%;
   font-family: var(--font);
   background: var(--forest);
-  color: var(--black);
+  color: var(--cream);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
 
-/* HEADER */
+/* ============================================================
+   HEADER
+   ============================================================ */
 .header {
-  background: var(--black);
+  background: var(--forest);
   color: var(--cream);
-  padding: 12px 16px;
+  padding: 10px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   position: sticky;
   top: 0;
   z-index: 1000;
-  box-shadow: var(--shadow-lg);
+  border-bottom: 1px solid var(--surface-border);
 }
 .header-left {
   display: flex;
@@ -82,62 +101,70 @@ html, body {
   gap: 10px;
 }
 .header-logo {
-  width: 32px;
-  height: 32px;
-  background: var(--orange);
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.header-logo img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: var(--radius-sm);
 }
 .header-title {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.2;
 }
-.header-subtitle {
+.header-context {
   font-size: 11px;
-  color: var(--cream-darker);
-  font-weight: 400;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
+  color: var(--text-muted);
+  line-height: 1.2;
 }
 .header-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
+.header-updated {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: none;
+}
+.header-updated.visible { display: block; }
 
-/* PRO MODE TOGGLE */
-.toggle-wrap {
+/* ============================================================
+   TOGGLE SWITCHES
+   ============================================================ */
+.toggle-group {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--cream-dark);
+  gap: 6px;
+}
+.toggle-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
 }
 .toggle {
-  width: 44px;
-  height: 24px;
-  background: var(--black-soft);
-  border: 2px solid var(--cream-darker);
-  border-radius: 12px;
+  width: 40px;
+  height: 22px;
+  background: var(--surface-border);
+  border: 2px solid var(--surface-border);
+  border-radius: 11px;
   cursor: pointer;
   position: relative;
   transition: all 0.3s;
 }
-.toggle.active {
-  background: var(--forest);
+.toggle[aria-checked="true"] {
+  background: var(--forest-light);
   border-color: var(--forest-light);
 }
 .toggle::after {
   content: '';
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   background: var(--cream);
   border-radius: 50%;
   position: absolute;
@@ -145,60 +172,90 @@ html, body {
   left: 1px;
   transition: transform 0.3s;
 }
-.toggle.active::after {
-  transform: translateX(20px);
+.toggle[aria-checked="true"]::after {
+  transform: translateX(18px);
 }
 
-/* NOTIFICATION BELL */
-.notif-btn {
-  background: none;
-  border: none;
-  color: var(--cream-dark);
-  font-size: 20px;
-  cursor: pointer;
-  padding: 4px;
-  transition: color 0.2s;
+/* ============================================================
+   RED FLAG ALERT BAR
+   ============================================================ */
+.alert-bar {
+  background: var(--red-flag);
+  color: white;
+  padding: 8px 16px;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  animation: pulse-alert 3s ease-in-out infinite;
 }
-.notif-btn:hover { color: var(--orange-text); }
-.notif-btn.enabled { color: var(--orange-text); }
+.alert-bar.visible { display: flex; }
+.alert-bar-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+.alert-bar-content { flex: 1; }
+.alert-bar-detail {
+  font-weight: 400;
+  font-size: 11px;
+  margin-top: 2px;
+  opacity: 0.9;
+}
+@keyframes pulse-alert {
+  0%, 100% { background: var(--red-flag); }
+  50% { background: var(--red-flag-dark); }
+}
 
-/* MAP */
+/* ============================================================
+   MAP
+   ============================================================ */
 #map-container {
   position: relative;
-  height: 300px;
+  height: 280px;
   background: var(--forest-dark);
 }
 #map { height: 100%; width: 100%; z-index: 1; }
+.map-coords {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 500;
+  background: rgba(30,42,34,0.85);
+  padding: 5px 10px;
+  border-radius: var(--radius-xs);
+  font-size: 11px;
+  color: var(--cream);
+  display: none;
+}
+.map-coords.visible { display: block; }
 .locate-btn {
   position: absolute;
-  bottom: 16px;
-  right: 16px;
+  bottom: 12px;
+  right: 12px;
   z-index: 500;
-  background: var(--orange);
+  background: var(--forest-light);
   color: white;
   border: none;
-  border-radius: 50px;
-  padding: 12px 20px;
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
   font-size: 14px;
-  font-weight: 700;
   cursor: pointer;
   box-shadow: var(--shadow-lg);
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
   transition: all 0.2s;
-  letter-spacing: 0.3px;
 }
-.locate-btn:hover { background: var(--orange-dark); transform: translateY(-1px); }
+.locate-btn:hover { background: var(--forest-mid); transform: translateY(-1px); }
 .locate-btn:active { transform: translateY(0); }
-.locate-btn.loading {
-  pointer-events: none;
-  opacity: 0.8;
-}
+.locate-btn.loading { pointer-events: none; opacity: 0.8; }
 .locate-btn .spinner {
   display: none;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border: 2px solid rgba(255,255,255,0.3);
   border-top-color: white;
   border-radius: 50%;
@@ -208,96 +265,267 @@ html, body {
 .locate-btn.loading .btn-icon { display: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* FOREST BANNER */
-.forest-banner {
-  background: var(--forest);
-  color: var(--cream);
-  padding: 14px 16px;
-  display: none;
-}
-.forest-banner.visible { display: block; }
-.forest-banner h2 {
-  font-size: 18px;
-  font-weight: 700;
-  margin-bottom: 2px;
-}
-.forest-banner .forest-meta {
-  font-size: 12px;
-  color: var(--cream-dark);
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-/* RED FLAG ALERT */
-.red-flag-alert {
-  background: var(--red-flag);
-  color: white;
-  padding: 12px 16px;
-  display: none;
-  align-items: center;
-  gap: 10px;
-  font-weight: 600;
-  font-size: 14px;
-  animation: pulse-bg 2s ease-in-out infinite;
-}
-.red-flag-alert.visible { display: flex; }
-@keyframes pulse-bg {
-  0%, 100% { background: var(--red-flag); }
-  50% { background: #AA1A2A; }
-}
-.red-flag-alert .rfa-icon { font-size: 20px; }
-.red-flag-alert .rfa-text { flex:1; }
-.red-flag-alert .rfa-detail {
-  font-weight: 400;
-  font-size: 12px;
-  margin-top: 2px;
-  opacity: 0.9;
-}
-
-/* CONTENT AREA */
-.content { padding: 12px; max-width: 600px; margin: 0 auto; }
-
-/* CARDS */
-.card {
+/* ============================================================
+   LOCATION PANEL (replaces old manual-loc + forest dropdown)
+   ============================================================ */
+.loc-panel {
+  position: absolute;
+  bottom: 60px;
+  left: 12px;
+  right: 12px;
+  z-index: 500;
   background: white;
+  color: var(--black);
   border-radius: var(--radius);
   padding: 16px;
-  margin-bottom: 12px;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-lg);
+  display: none;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.loc-panel.visible { display: block; }
+.loc-panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--forest-mid);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.loc-panel-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: none;
   border: none;
+  font-size: 20px;
+  color: #999;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+}
+.loc-panel-close:hover { color: var(--black); }
+.loc-coord-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.loc-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--cream-dark);
+  border-radius: var(--radius-xs);
+  font-size: 14px;
+  font-family: var(--font);
+  background: #fafaf5;
+  color: var(--black);
+  min-height: 44px;
+}
+.loc-input:focus {
+  outline: none;
+  border-color: var(--forest-mid);
+}
+.loc-btn {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: var(--radius-xs);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: all 0.2s;
+  min-height: 44px;
+}
+.loc-btn-primary {
+  background: var(--forest-mid);
+  color: white;
+}
+.loc-btn-primary:hover { background: var(--forest-dark); }
+.loc-btn-secondary {
+  background: #fafaf5;
+  color: var(--forest-mid);
+  border: 1px solid var(--cream-dark);
+  margin-top: 6px;
+}
+.loc-btn-secondary:hover { background: var(--cream-dark); }
+.loc-divider {
+  text-align: center;
+  font-size: 11px;
+  color: #999;
+  margin: 12px 0;
+  position: relative;
+}
+.loc-divider::before, .loc-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 38%;
+  height: 1px;
+  background: var(--cream-dark);
+}
+.loc-divider::before { left: 0; }
+.loc-divider::after { right: 0; }
+.loc-error {
+  background: var(--red-flag-bg);
+  color: var(--red-flag);
+  padding: 10px 14px;
+  border-radius: var(--radius-xs);
+  font-size: 13px;
+  margin-bottom: 10px;
+  display: none;
+  line-height: 1.4;
+}
+.loc-error.visible { display: block; }
+
+/* Searchable location filter */
+.loc-search {
+  position: relative;
+  margin-bottom: 8px;
+}
+.loc-search-input {
+  width: 100%;
+  padding: 10px 12px 10px 34px;
+  border: 1px solid var(--cream-dark);
+  border-radius: var(--radius-xs);
+  font-size: 14px;
+  font-family: var(--font);
+  background: #fafaf5;
+  color: var(--black);
+  min-height: 44px;
+}
+.loc-search-input:focus {
+  outline: none;
+  border-color: var(--forest-mid);
+}
+.loc-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: #999;
+}
+.loc-results {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--cream-dark);
+  border-radius: var(--radius-xs);
+  display: none;
+}
+.loc-results.visible { display: block; }
+.loc-result-item {
+  padding: 10px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #f0ede4;
+  min-height: 44px;
+}
+.loc-result-item:last-child { border-bottom: none; }
+.loc-result-item:hover { background: #f5f3ed; }
+.loc-result-name { font-weight: 500; color: var(--black); }
+.loc-result-dist { font-size: 11px; color: #999; }
+.loc-result-type {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: #f0ede4;
+  color: #666;
+}
+.loc-radius-note {
+  font-size: 11px;
+  color: #999;
+  text-align: center;
+  margin-top: 6px;
+}
+
+/* ============================================================
+   LAYOUT: CONTENT AREA + TWO-COLUMN DESKTOP
+   ============================================================ */
+.content {
+  padding: 12px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+.desktop-layout {
+  display: none;
+}
+
+/* ============================================================
+   CARDS
+   ============================================================ */
+.card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 10px;
 }
 .card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
-.card-title {
-  font-size: 13px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  color: var(--forest);
+.card-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.3px;
   display: flex;
   align-items: center;
   gap: 6px;
 }
-.card-badge {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-weight: 700;
+.card-label-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
-/* PAL BADGE */
+/* Hero card (primary) */
+.card-hero {
+  border-left: 3px solid var(--forest-light);
+  margin-bottom: 10px;
+}
+.card-hero.threat-high { border-left-color: var(--orange); }
+.card-hero.threat-extreme { border-left-color: var(--red-flag); }
+
+.hero-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+.hero-temp {
+  font-size: 36px;
+  font-weight: 500;
+  line-height: 1;
+}
+.hero-condition {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* PAL Badge */
 .pal-badge {
-  font-size: 14px;
-  padding: 4px 14px;
-  border-radius: 6px;
-  font-weight: 800;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 600;
   color: white;
-  letter-spacing: 1px;
+  flex-shrink: 0;
+}
+.pal-badge-label {
+  font-size: 9px;
+  text-align: center;
+  margin-top: 2px;
 }
 .pal-a { background: var(--pal-a); }
 .pal-b { background: var(--pal-b); }
@@ -305,253 +533,154 @@ html, body {
 .pal-d { background: var(--pal-d); }
 .pal-e { background: var(--pal-e); }
 
-/* DATA ROWS */
+/* Metric grid */
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--surface-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.metric-cell {
+  background: var(--surface);
+  padding: 8px 10px;
+  text-align: center;
+}
+.metric-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+.metric-value {
+  font-size: 15px;
+  font-weight: 500;
+}
+.metric-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.metric-value.danger { color: var(--red-flag); }
+.metric-value.warn { color: var(--orange); }
+.metric-value.good { color: var(--forest-light); }
+.metric-sub.danger { color: var(--red-flag); }
+.metric-sub.warn { color: var(--orange); }
+
+/* Data rows */
 .data-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--cream-dark);
-  font-size: 14px;
-}
-.data-row:last-child { border-bottom: none; }
-.data-label {
-  color: #666;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--surface-border);
   font-size: 13px;
 }
-.data-value {
-  font-weight: 600;
-  text-align: right;
-}
-.data-value.warn { color: var(--orange-text); }
+.data-row:last-child { border-bottom: none; }
+.data-label { color: var(--text-muted); font-size: 12px; }
+.data-value { font-weight: 500; text-align: right; }
+.data-value.warn { color: var(--orange); }
 .data-value.danger { color: var(--red-flag); }
-.data-value.good { color: var(--forest); }
+.data-value.good { color: var(--forest-light); }
 
-/* HUMIDITY BAR */
-.rh-bar-container {
-  margin-top: 8px;
-  padding-top: 8px;
+/* Side-by-side cards */
+.card-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
 }
-.rh-bar-label {
-  font-size: 12px;
-  color: #666;
-  margin-bottom: 4px;
+
+/* 7-day fire potential bars */
+.fp-bars {
   display: flex;
-  justify-content: space-between;
+  gap: 4px;
+  align-items: flex-end;
+  height: 50px;
 }
-.rh-bar {
-  height: 8px;
-  background: var(--cream-dark);
-  border-radius: 4px;
-  overflow: visible;
-  position: relative;
+.fp-bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
 }
-.rh-bar-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.8s ease;
+.fp-bar-level { font-size: 9px; }
+.fp-bar {
+  width: 100%;
+  border-radius: 3px;
+  min-height: 8px;
+  transition: height 0.3s;
 }
-.rh-bar-threshold {
-  position: absolute;
-  top: -2px;
-  width: 2px;
-  height: 12px;
-  background: var(--red-flag);
-}
+.fp-bar-day { font-size: 9px; color: var(--text-muted); }
+.fp-low { background: #6B8E23; }
+.fp-mod { background: #DAA520; }
+.fp-high { background: var(--orange); }
+.fp-extreme { background: var(--red-flag); }
+.fp-lightning { background: var(--red-flag); }
+.fp-wind { background: #B85A00; }
+.fp-burn { background: #7B3FA0; }
+.fp-nodata { background: #555; }
 
-/* FORECAST STRIP */
+/* Forecast strip */
 .forecast-strip {
   display: flex;
-  gap: 8px;
+  gap: 14px;
   overflow-x: auto;
-  padding: 4px 0;
+  padding-bottom: 4px;
   -webkit-overflow-scrolling: touch;
 }
 .forecast-item {
   flex-shrink: 0;
   text-align: center;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--cream);
-  min-width: 72px;
-  font-size: 12px;
 }
-.forecast-item .fi-time {
-  font-weight: 700;
-  color: var(--forest);
-  margin-bottom: 4px;
-}
-.forecast-item .fi-icon { font-size: 20px; margin: 4px 0; }
-.forecast-item .fi-temp { font-weight: 700; font-size: 16px; }
-.forecast-item .fi-rh { color: #666; font-size: 11px; margin-top: 2px; }
+.fi-time { font-size: 11px; color: var(--text-muted); }
+.fi-temp { font-size: 14px; font-weight: 500; margin: 3px 0; }
+.fi-detail { font-size: 10px; color: var(--text-muted); }
 
-/* 7-DAY FIRE POTENTIAL STRIP */
-.fp-strip {
+/* RH recovery */
+.rh-recovery-summary {
   display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding: 4px 0;
-  -webkit-overflow-scrolling: touch;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 6px;
 }
-.fp-day {
-  flex: 1;
-  min-width: 70px;
-  text-align: center;
-  padding: 10px 6px;
-  border-radius: 8px;
-  font-size: 12px;
-  transition: transform 0.15s ease;
+.rh-recovery-grade {
+  font-size: 20px;
+  font-weight: 500;
 }
-.fp-day:hover { transform: scale(1.05); }
-.fp-day .fp-label {
-  font-weight: 700;
-  margin-bottom: 4px;
+.rh-recovery-note {
   font-size: 11px;
-  text-transform: uppercase;
+  color: var(--text-muted);
+  line-height: 1.3;
 }
-.fp-day .fp-code {
-  font-weight: 800;
-  font-size: 13px;
-  margin: 4px 0;
-  line-height: 1.2;
-}
-.fp-day .fp-desc {
-  font-size: 10px;
-  opacity: 0.85;
-}
-.fp-day.fp-nodata {
-  background: #C8C8C8; color: #1C1C1C;
-}
-.fp-day.fp-moist {
-  background: #D5EBD8; color: #1E4029;
-}
-.fp-day.fp-dry {
-  background: #FFF5C8; color: #5C4A08;
-}
-.fp-day.fp-very-dry {
-  background: #F5DEC0; color: #6B3A10;
-}
-.fp-day.fp-wind {
-  background: #B85A00; color: white;
-}
-.fp-day.fp-lightning {
-  background: #CC2233; color: white;
-}
-.fp-day.fp-critical {
-  background: #B34700; color: white;
-}
-.fp-day.fp-burn {
-  background: #7B3FA0; color: white;
-}
-.fp-psa-info {
-  font-size: 12px;
-  color: #666;
-  margin-bottom: 10px;
-  line-height: 1.5;
-}
-.fp-psa-info strong {
-  color: #1C1C1C;
-}
-
-/* PRECAUTIONS LIST */
-.precaution {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--cream-dark);
-  font-size: 13px;
-  line-height: 1.4;
-}
-.precaution:last-child { border-bottom: none; }
-.precaution-icon {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--cream);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-}
-
-/* PRO MODE DATA TABLE */
-.pro-table {
-  width: 100%;
-  font-size: 13px;
-  border-collapse: collapse;
-}
-.pro-table th {
-  text-align: left;
-  padding: 6px 8px;
-  background: var(--forest);
-  color: var(--cream);
+.rh-alert {
   font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.pro-table th:first-child { border-radius: 6px 0 0 0; }
-.pro-table th:last-child { border-radius: 0 6px 0 0; }
-.pro-table td {
   padding: 6px 8px;
-  border-bottom: 1px solid var(--cream-dark);
+  border-radius: var(--radius-xs);
+  margin-top: 6px;
 }
-.pro-table tr:nth-child(even) td { background: var(--cream); }
-
-
-/* All pro content visible by default */
-.pro-only { display: block; }
-.pro-only-flex { display: flex; }
-.pub-only { display: none; }
-
-/* LIGHT MODE THEME */
-body.light-mode {
-  background: var(--cream);
+.rh-alert-danger {
+  color: var(--red-flag);
+  background: rgba(204,34,51,0.1);
 }
-body.light-mode .header {
-  background: var(--forest-dark);
-}
-body.light-mode .card {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  border: 1px solid var(--cream-dark);
-}
-body.light-mode .forest-banner {
-  background: var(--forest-light);
-}
-body.light-mode .empty-state h3 {
-  color: var(--black);
-}
-body.light-mode .empty-state p {
-  color: #666;
-}
-body.light-mode .source-note {
-  color: #999;
-}
-body.light-mode .source-note a {
-  color: var(--orange-dark);
-}
-body.light-mode .source-note span {
-  color: #777 !important;
-}
-body.light-mode #map-container {
-  background: var(--cream-dark);
+.rh-alert-good {
+  color: var(--forest-light);
+  background: rgba(61,122,81,0.1);
 }
 
-/* OVERNIGHT RECOVERY */
+/* Recovery chart bars */
 .recovery-chart {
   display: flex;
   align-items: flex-end;
-  gap: 3px;
-  height: 80px;
-  padding-top: 8px;
+  gap: 2px;
+  height: 60px;
+  padding-top: 4px;
 }
 .recovery-bar {
   flex: 1;
   background: var(--forest-light);
-  border-radius: 3px 3px 0 0;
-  min-height: 4px;
-  position: relative;
+  border-radius: 2px 2px 0 0;
+  min-height: 3px;
   transition: height 0.5s ease;
 }
 .recovery-bar.below-threshold { background: var(--orange); }
@@ -559,12 +688,112 @@ body.light-mode #map-container {
 .recovery-time {
   display: flex;
   justify-content: space-between;
-  font-size: 10px;
-  color: #999;
-  margin-top: 4px;
+  font-size: 9px;
+  color: var(--text-dim);
+  margin-top: 3px;
 }
 
-/* LOADING STATE */
+/* RH bar */
+.rh-bar-container { margin-top: 8px; }
+.rh-bar-header {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+}
+.rh-bar {
+  height: 6px;
+  background: var(--surface-border);
+  border-radius: 3px;
+  overflow: visible;
+  position: relative;
+}
+.rh-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.8s ease;
+}
+.rh-bar-threshold {
+  position: absolute;
+  top: -2px;
+  width: 2px;
+  height: 10px;
+  background: var(--red-flag);
+}
+
+/* Precautions */
+.precaution-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(212,112,42,0.08);
+  border-radius: var(--radius-xs);
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+.precaution-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--orange);
+  flex-shrink: 0;
+}
+
+/* Pro mode table */
+.pro-table {
+  width: 100%;
+  font-size: 12px;
+  border-collapse: collapse;
+}
+.pro-table th {
+  text-align: left;
+  padding: 5px 8px;
+  background: var(--forest-mid);
+  color: var(--cream);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.pro-table th:first-child { border-radius: var(--radius-xs) 0 0 0; }
+.pro-table th:last-child { border-radius: 0 var(--radius-xs) 0 0; }
+.pro-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--surface-border);
+  color: var(--cream);
+}
+
+/* PAL detail (pro mode) */
+.pal-detail {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--surface-border);
+}
+.pal-detail-note {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-bottom: 6px;
+}
+.pal-restrictions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+/* Pro/Public visibility */
+.pro-only { display: none; }
+.pro-mode .pro-only { display: block; }
+.pro-mode .pro-only-flex { display: flex; }
+.pro-mode .pro-only-grid { display: grid; }
+.pub-only { display: block; }
+.pro-mode .pub-only { display: none; }
+
+/* ============================================================
+   LOADING & ERROR STATES
+   ============================================================ */
 .loading-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -581,27 +810,75 @@ body.light-mode #map-container {
   padding: 32px;
   text-align: center;
   box-shadow: var(--shadow-lg);
+  color: var(--black);
 }
-.loading-box .spinner-lg {
+.spinner-lg {
   width: 40px;
   height: 40px;
   border: 4px solid var(--cream-dark);
-  border-top-color: var(--orange);
+  border-top-color: var(--forest-light);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   margin: 0 auto 16px;
 }
-.loading-box p {
-  font-size: 14px;
-  color: #666;
-}
 
-/* EMPTY STATE */
+/* Skeleton loader */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-border) 25%, var(--surface) 50%, var(--surface-border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton-line { height: 14px; margin-bottom: 8px; }
+.skeleton-line.short { width: 60%; }
+.skeleton-block { height: 80px; margin-bottom: 10px; }
+
+/* Error banner */
+.error-banner {
+  background: rgba(204,34,51,0.1);
+  border: 1px solid rgba(204,34,51,0.2);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--red-flag);
+}
+.error-banner.visible { display: flex; }
+.error-banner-text { flex: 1; }
+.error-banner-retry {
+  background: var(--red-flag);
+  color: white;
+  border: none;
+  border-radius: var(--radius-xs);
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font);
+  min-height: 32px;
+}
+.error-banner-retry:hover { background: var(--red-flag-dark); }
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
 .empty-state {
   text-align: center;
   padding: 40px 20px;
 }
-.empty-state .es-icon { font-size: 48px; margin-bottom: 16px; }
+.es-icon {
+  margin-bottom: 16px;
+}
+.es-icon img {
+  border-radius: 16px;
+}
 .empty-state h3 {
   font-size: 18px;
   color: var(--cream);
@@ -609,623 +886,627 @@ body.light-mode #map-container {
 }
 .empty-state p {
   font-size: 14px;
-  color: rgba(253,245,230,0.7);
+  color: rgba(240,237,228,0.7);
   line-height: 1.5;
   max-width: 280px;
   margin: 0 auto;
 }
 
-/* SETTINGS PANEL */
-.settings-panel {
-  background: white;
-  border-radius: var(--radius);
-  padding: 16px;
-  margin-bottom: 12px;
-  box-shadow: var(--shadow);
-  border: 1px solid var(--cream-dark);
+/* ============================================================
+   FOREST/LAND BANNER
+   ============================================================ */
+.forest-banner {
+  background: var(--forest-mid);
+  color: var(--cream);
+  padding: 12px 16px;
   display: none;
 }
-.settings-panel.visible { display: block; }
-.settings-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--cream-dark);
+.forest-banner.visible { display: block; }
+.forest-banner-name {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 2px;
 }
-.settings-row:last-child { border-bottom: none; }
-.settings-label { font-size: 14px; }
-.settings-desc { font-size: 12px; color: #888; margin-top: 2px; }
-
-/* DATA SOURCE NOTE */
-.source-note {
-  text-align: center;
+.forest-banner-meta {
   font-size: 11px;
-  color: rgba(253,245,230,0.6);
-  padding: 16px;
+  color: rgba(240,237,228,0.7);
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.tribal-sub {
+  display: none;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(240,237,228,0.15);
+  font-size: 12px;
+}
+.tribal-sub.visible { display: block; }
+.tribal-sub-name { font-weight: 600; }
+.tribal-sub-acres { color: rgba(240,237,228,0.7); margin-left: 8px; font-size: 11px; }
+
+/* ============================================================
+   DATA SOURCES FOOTER
+   ============================================================ */
+.source-footer {
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-dim);
+  padding: 14px 16px;
   line-height: 1.5;
 }
-.source-note a { color: var(--orange-light); }
+.source-footer a { color: var(--orange-light); text-decoration: none; }
+.source-footer a:hover { text-decoration: underline; }
+.source-footer-credit {
+  display: block;
+  margin: 6px 0;
+  font-size: 11px;
+  color: rgba(240,237,228,0.6);
+  font-weight: 600;
+}
 
-/* MANUAL LOCATION PANEL */
-.manual-loc {
-  position: absolute;
-  bottom: 60px;
-  left: 16px;
-  right: 16px;
-  z-index: 500;
-  background: white;
-  border-radius: var(--radius);
-  padding: 14px;
-  box-shadow: var(--shadow-lg);
-  display: none;
-  border: 1px solid var(--cream-dark);
-}
-.manual-loc.visible { display: block; }
-.manual-loc h4 {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--forest);
-  margin-bottom: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.manual-loc-row {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.manual-loc input, .manual-loc select {
-  flex: 1;
-  padding: 8px 10px;
-  border: 1px solid var(--cream-dark);
-  border-radius: 6px;
-  font-size: 13px;
-  font-family: var(--font);
+/* ============================================================
+   LIGHT MODE
+   ============================================================ */
+body.light-mode {
   background: var(--cream);
   color: var(--black);
 }
-.manual-loc input:focus, .manual-loc select:focus {
-  outline: none;
-  border-color: var(--forest);
+body.light-mode .header {
+  background: var(--forest-dark);
 }
-.manual-loc-btn {
-  width: 100%;
-  padding: 10px;
-  border: none;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  font-family: var(--font);
-  transition: all 0.2s;
+body.light-mode .card {
+  background: white;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  border: 1px solid #e8e4db;
 }
-.manual-loc-btn.primary {
-  background: var(--forest);
-  color: white;
+body.light-mode .metric-grid {
+  background: #e8e4db;
 }
-.manual-loc-btn.primary:hover { background: var(--forest-dark); }
-.manual-loc-btn.secondary {
-  background: var(--cream);
-  color: var(--forest);
-  border: 1px solid var(--cream-dark);
-  margin-top: 6px;
+body.light-mode .metric-cell {
+  background: white;
 }
-.manual-loc-btn.secondary:hover { background: var(--cream-dark); }
-.manual-loc-divider {
-  text-align: center;
-  font-size: 11px;
-  color: #999;
-  margin: 10px 0;
-  position: relative;
+body.light-mode .metric-label,
+body.light-mode .card-label,
+body.light-mode .data-label {
+  color: #888;
 }
-.manual-loc-divider::before, .manual-loc-divider::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  width: 40%;
-  height: 1px;
-  background: var(--cream-dark);
+body.light-mode .metric-value,
+body.light-mode .data-value,
+body.light-mode .hero-temp,
+body.light-mode .fi-temp {
+  color: var(--black);
 }
-.manual-loc-divider::before { left: 0; }
-.manual-loc-divider::after { right: 0; }
-.manual-loc-close {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  background: none;
-  border: none;
-  font-size: 18px;
-  color: #999;
-  cursor: pointer;
-  padding: 2px 6px;
+body.light-mode .hero-condition,
+body.light-mode .metric-sub,
+body.light-mode .fi-time,
+body.light-mode .fi-detail,
+body.light-mode .fp-bar-day {
+  color: #888;
 }
-.manual-loc-close:hover { color: var(--black); }
-.loc-error-msg {
-  background: var(--red-flag-bg);
-  color: var(--red-flag);
-  padding: 10px 14px;
-  border-radius: 6px;
-  font-size: 13px;
-  margin-bottom: 10px;
-  display: none;
-  line-height: 1.4;
+body.light-mode .rh-recovery-note { color: #666; }
+body.light-mode .data-row { border-bottom-color: #e8e4db; }
+body.light-mode .pro-table td { color: var(--black); border-bottom-color: #e8e4db; }
+body.light-mode .forest-banner { background: var(--forest-light); }
+body.light-mode .source-footer { color: #999; }
+body.light-mode .source-footer a { color: var(--orange-dark); }
+body.light-mode .empty-state h3 { color: var(--black); }
+body.light-mode .empty-state p { color: #666; }
+body.light-mode #map-container { background: var(--cream-dark); }
+body.light-mode .precaution-item { background: rgba(212,112,42,0.06); }
+body.light-mode .surface-border { border-color: #e8e4db; }
+body.light-mode .recovery-bar { background: var(--forest-mid); }
+body.light-mode .rh-bar { background: #e8e4db; }
+body.light-mode .skeleton {
+  background: linear-gradient(90deg, #e8e4db 25%, #f0ede4 50%, #e8e4db 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
 }
-.loc-error-msg.visible { display: block; }
 
-/* RESPONSIVE */
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
 @media (min-width: 480px) {
-  #map-container { height: 360px; }
+  #map-container { height: 320px; }
 }
 @media (min-width: 768px) {
-  #map-container { height: 420px; }
+  #map-container { height: 380px; }
   .content { padding: 16px; }
+}
+@media (min-width: 1024px) {
+  .content { display: none; }
+  .desktop-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    max-width: 1200px;
+    margin: 0 auto;
+    min-height: calc(100vh - 46px);
+  }
+  .desktop-layout.has-alert {
+    min-height: calc(100vh - 82px);
+  }
+  .dl-left {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--surface-border);
+  }
+  .dl-left #map-container {
+    flex: 1;
+    height: auto;
+    min-height: 300px;
+  }
+  .dl-left-cards {
+    padding: 12px;
+  }
+  .dl-right {
+    padding: 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .dl-right .card { margin-bottom: 0; }
+  .source-footer-desktop {
+    border-top: 1px solid var(--surface-border);
+    padding: 6px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+  .source-footer-desktop a { color: var(--orange-light); text-decoration: none; }
 }
 </style>
 </head>
 <body>
 
 <!-- HEADER -->
-<header class="header">
+<header class="header" role="banner">
   <div class="header-left">
-    <div class="header-logo" style="background:none;padding:0;"><img src="icon-512.png" width="32" height="32" alt="Swivel-Head Pro" style="border-radius:6px;"></div>
+    <div class="header-logo"><img src="icon-512.png" width="30" height="30" alt="SitAware"></div>
     <div>
-      <div class="header-title">Swivel-Head Pro</div>
-      <div class="header-subtitle">Wildfire Situational Awareness</div>
+      <div class="header-title">SitAware</div>
+      <div class="header-context" id="headerContext">Wildfire Situational Awareness</div>
     </div>
   </div>
   <div class="header-right">
-    <div class="toggle-wrap">
-      <span id="themeLabel">&#x1F31A;</span>
-      <div class="toggle active" id="themeToggle" onclick="toggleTheme()"></div>
+    <span class="header-updated" id="headerUpdated" aria-live="polite"></span>
+    <div class="toggle-group">
+      <span class="toggle-label" id="proLabel">Pro</span>
+      <div class="toggle" id="proToggle" role="switch" aria-checked="false" aria-label="Toggle pro mode" tabindex="0"></div>
     </div>
-    <!-- Notification button removed -->
+    <div class="toggle-group">
+      <span class="toggle-label" id="themeLabel">Theme</span>
+      <div class="toggle" id="themeToggle" role="switch" aria-checked="true" aria-label="Toggle dark/light theme" tabindex="0"></div>
+    </div>
   </div>
 </header>
 
 <!-- RED FLAG ALERT BAR -->
-<div class="red-flag-alert" id="redFlagAlert">
-  <span class="rfa-icon">&#x26A0;</span>
-  <div>
-    <div class="rfa-text" id="redFlagText">RED FLAG WARNING</div>
-    <div class="rfa-detail" id="redFlagDetail"></div>
+<div class="alert-bar" id="alertBar" role="alert" aria-live="assertive">
+  <svg class="alert-bar-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <path d="M10 2L1 18h18L10 2z" stroke="currentColor" stroke-width="1.5" fill="none"/>
+    <line x1="10" y1="8" x2="10" y2="12" stroke="currentColor" stroke-width="1.5"/>
+    <circle cx="10" cy="15" r="1" fill="currentColor"/>
+  </svg>
+  <div class="alert-bar-content">
+    <div id="alertText">RED FLAG WARNING</div>
+    <div class="alert-bar-detail" id="alertDetail"></div>
   </div>
 </div>
 
-<!-- FOREST BANNER -->
-<div class="forest-banner" id="forestBanner">
-  <h2 id="forestName">---</h2>
-  <div class="forest-meta">
+<!-- FOREST/LAND BANNER -->
+<div class="forest-banner" id="forestBanner" aria-label="Current jurisdiction">
+  <div class="forest-banner-name" id="forestName">---</div>
+  <div class="forest-banner-meta">
     <span id="forestRegion">Region --</span>
     <span id="forestAcres">-- acres</span>
     <span id="forestGACC">GACC: --</span>
   </div>
-  <div id="tribalBanner" style="display:none;margin-top:6px;padding-top:6px;border-top:1px solid rgba(253,245,230,0.2);">
-    <span style="font-size:13px;font-weight:700;color:var(--cream);" id="tribalName"></span>
-    <span style="font-size:11px;color:var(--cream-dark);margin-left:8px;" id="tribalAcres"></span>
+  <div class="tribal-sub" id="tribalBanner">
+    <span class="tribal-sub-name" id="tribalName"></span>
+    <span class="tribal-sub-acres" id="tribalAcres"></span>
   </div>
 </div>
 
 <!-- MAP -->
 <div id="map-container">
-  <div id="map"></div>
-  <button class="locate-btn" id="locateBtn" onclick="geolocateUser()">
-    <span class="btn-icon">&#x1F4CD;</span>
+  <div id="map" role="application" aria-label="Interactive map"></div>
+  <div class="map-coords" id="mapCoords" aria-live="polite"></div>
+  <button class="locate-btn" id="locateBtn" aria-label="Find my location">
+    <span class="btn-icon">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <circle cx="10" cy="8" r="4" stroke="currentColor" stroke-width="2" fill="none"/>
+        <path d="M10 13v5M7 16h6" stroke="currentColor" stroke-width="2"/>
+      </svg>
+    </span>
     <span class="spinner"></span>
-    Locate Me
   </button>
 
-  <!-- MANUAL LOCATION PANEL -->
-  <div class="manual-loc" id="manualLocPanel">
-    <button class="manual-loc-close" onclick="toggleManualPanel()">&times;</button>
-    <h4>Set Location Manually</h4>
-    <div class="loc-error-msg" id="locErrorMsg"></div>
-    <div class="manual-loc-row">
-      <input type="text" id="manualLat" placeholder="Latitude (e.g. 40.9)" inputmode="decimal">
-      <input type="text" id="manualLon" placeholder="Longitude (e.g. -123.5)" inputmode="decimal">
+  <!-- LOCATION PANEL -->
+  <div class="loc-panel" id="locPanel" aria-label="Set location manually">
+    <button class="loc-panel-close" id="locPanelClose" aria-label="Close location panel">&times;</button>
+    <div class="loc-panel-title">Set location</div>
+    <div class="loc-error" id="locError" role="alert"></div>
+    <div class="loc-coord-row">
+      <input type="text" class="loc-input" id="manualLat" placeholder="Latitude (e.g. 40.9)" inputmode="decimal" aria-label="Latitude">
+      <input type="text" class="loc-input" id="manualLon" placeholder="Longitude (e.g. -123.5)" inputmode="decimal" aria-label="Longitude">
     </div>
-    <button class="manual-loc-btn primary" onclick="useManualCoords()">Go to Coordinates</button>
-    <div class="manual-loc-divider">or select a public land area</div>
-    <select id="forestSelect" onchange="useSelectedForest()">
-      <option value="">-- Choose a Public Land Area --</option>
-      <optgroup label="R5 - Pacific Southwest (ONCC)">
-        <option value="40.9,-123.5">Six Rivers NF</option>
-        <option value="41.3,-122.5">Shasta-Trinity NF</option>
-        <option value="40.5,-122.8">Mendocino NF</option>
-        <option value="39.5,-121.0">Plumas NF</option>
-        <option value="39.1,-120.6">Tahoe NF</option>
-        <option value="38.8,-120.5">Eldorado NF</option>
-        <option value="38.5,-119.8">Stanislaus NF</option>
-        <option value="37.5,-119.2">Sierra NF</option>
-        <option value="36.5,-118.5">Sequoia NF</option>
-        <option value="34.7,-119.0">Los Padres NF</option>
-        <option value="34.3,-117.7">Angeles NF</option>
-        <option value="34.2,-118.2">San Bernardino NF</option>
-        <option value="33.5,-116.8">Cleveland NF</option>
-        <option value="40.0,-123.0">Klamath NF</option>
-        <option value="39.0,-122.0">Lassen NF</option>
-        <option value="41.0,-121.5">Modoc NF</option>
-        <option value="37.8,-119.5">Inyo NF</option>
-      </optgroup>
-      <optgroup label="R6 - Pacific Northwest (NWCC)">
-        <option value="45.3,-121.8">Mt. Hood NF</option>
-        <option value="44.0,-121.7">Deschutes NF</option>
-        <option value="44.2,-122.0">Willamette NF</option>
-        <option value="42.5,-122.5">Rogue River-Siskiyou NF</option>
-        <option value="43.5,-123.0">Umpqua NF</option>
-        <option value="47.5,-121.2">Mt. Baker-Snoqualmie NF</option>
-        <option value="46.5,-121.5">Gifford Pinchot NF</option>
-        <option value="48.0,-120.5">Okanogan-Wenatchee NF</option>
-        <option value="46.0,-118.5">Umatilla NF</option>
-        <option value="44.5,-118.5">Malheur NF</option>
-        <option value="44.0,-119.0">Ochoco NF</option>
-        <option value="42.0,-121.0">Fremont-Winema NF</option>
-      </optgroup>
-      <optgroup label="R1 - Northern (NRCC)">
-        <option value="46.8,-113.8">Lolo NF</option>
-        <option value="47.5,-115.0">Flathead NF</option>
-        <option value="46.0,-114.5">Bitterroot NF</option>
-        <option value="47.0,-116.0">Idaho Panhandle NF</option>
-        <option value="45.5,-114.0">Nez Perce-Clearwater NF</option>
-      </optgroup>
-      <optgroup label="R2 - Rocky Mountain (RMCC)">
-        <option value="39.6,-105.8">Arapaho-Roosevelt NF</option>
-        <option value="39.0,-106.5">White River NF</option>
-        <option value="38.5,-106.0">Pike-San Isabel NF</option>
-        <option value="37.5,-107.5">San Juan NF</option>
-      </optgroup>
-      <optgroup label="R3 - Southwestern (SWCC)">
-        <option value="35.8,-105.8">Santa Fe NF</option>
-        <option value="33.4,-108.8">Gila NF</option>
-        <option value="34.5,-111.5">Coconino NF</option>
-        <option value="34.8,-111.8">Prescott NF</option>
-        <option value="34.0,-109.5">Apache-Sitgreaves NF</option>
-        <option value="32.5,-110.7">Coronado NF</option>
-        <option value="36.0,-105.5">Carson NF</option>
-        <option value="33.5,-105.5">Lincoln NF</option>
-      </optgroup>
-      <optgroup label="R4 - Intermountain (GBCC)">
-        <option value="43.5,-114.5">Sawtooth NF</option>
-        <option value="44.5,-111.0">Caribou-Targhee NF</option>
-        <option value="42.0,-115.0">Humboldt-Toiyabe NF</option>
-        <option value="40.5,-111.5">Uinta-Wasatch-Cache NF</option>
-        <option value="43.0,-110.5">Bridger-Teton NF</option>
-      </optgroup>
-      <optgroup label="R8 - Southern (SACC)">
-        <option value="35.5,-83.5">Nantahala NF</option>
-        <option value="35.8,-82.5">Pisgah NF</option>
-        <option value="37.8,-79.5">George Washington-Jefferson NF</option>
-        <option value="34.8,-84.0">Chattahoochee-Oconee NF</option>
-        <option value="35.0,-83.0">Cherokee NF</option>
-      </optgroup>
-      <optgroup label="R9 - Eastern (EACC)">
-        <option value="46.5,-89.0">Chequamegon-Nicolet NF</option>
-        <option value="47.5,-91.5">Superior NF</option>
-        <option value="44.5,-84.0">Huron-Manistee NF</option>
-        <option value="44.0,-71.5">White Mountain NF</option>
-        <option value="43.0,-73.0">Green Mountain NF</option>
-      </optgroup>
-      <optgroup label="BLM - Bureau of Land Management">
-        <option value="39.5,-116.8">BLM - Battle Mountain District, NV</option>
-        <option value="43.6,-116.2">BLM - Boise District, ID</option>
-        <option value="38.5,-109.5">BLM - Moab Field Office, UT</option>
-        <option value="36.9,-111.5">BLM - Arizona Strip, AZ</option>
-        <option value="42.8,-117.5">BLM - Vale District, OR</option>
-        <option value="44.8,-108.0">BLM - Cody Field Office, WY</option>
-        <option value="40.5,-117.5">BLM - Winnemucca District, NV</option>
-        <option value="37.0,-105.5">BLM - San Luis Valley, CO</option>
-        <option value="35.2,-106.5">BLM - Rio Puerco Field Office, NM</option>
-        <option value="46.8,-109.5">BLM - Lewistown Field Office, MT</option>
-      </optgroup>
-      <optgroup label="State Parks & Lands">
-        <option value="40.35,-123.96">Humboldt Redwoods SP, CA</option>
-        <option value="36.25,-121.8">Big Sur / Pfeiffer SP, CA</option>
-        <option value="44.9,-110.4">Yellowstone area State Lands, MT</option>
-        <option value="37.75,-122.5">Mt. Tamalpais SP, CA</option>
-        <option value="41.65,-124.1">Jedediah Smith Redwoods SP, CA</option>
-        <option value="34.0,-116.9">Mt. San Jacinto SP, CA</option>
-        <option value="45.5,-122.7">Forest Park, Portland, OR</option>
-        <option value="47.6,-122.3">Washington State Parks - Central</option>
-      </optgroup>
-      <optgroup label="California Tribal Territories">
-        <option value="41.3809,-123.905">Yurok Reservation</option>
-        <option value="41.0934,-123.6734">Hoopa Valley Reservation</option>
-        <option value="41.8009,-123.3767">Karuk Reservation</option>
-        <option value="40.8834,-123.998">Blue Lake Rancheria</option>
-        <option value="41.1643,-124.1208">Big Lagoon Rancheria</option>
-        <option value="41.0542,-124.1305">Trinidad Rancheria</option>
-        <option value="40.6907,-124.2522">Table Bluff Reservation</option>
-        <option value="41.5145,-124.0166">Resighini Rancheria</option>
-        <option value="41.7603,-124.1565">Elk Valley Rancheria</option>
-        <option value="41.9554,-124.2064">Smith River Rancheria</option>
-        <option value="41.6115,-122.9724">Quartz Valley Reservation</option>
-        <option value="39.8642,-123.1884">Round Valley Reservation</option>
-        <option value="36.0453,-118.7302">Tule River Reservation</option>
-        <option value="33.9529,-116.8078">Morongo Reservation</option>
-        <option value="33.7877,-116.532">Agua Caliente Indian Reservation</option>
-        <option value="33.3614,-117.049">Pala Reservation</option>
-        <option value="33.4403,-117.048">Pechanga Reservation</option>
-        <option value="33.2648,-116.959">Rincon Reservation</option>
-        <option value="33.7741,-116.8807">Soboba Reservation</option>
-        <option value="33.5202,-116.7118">Cahuilla Reservation</option>
-        <option value="34.1558,-117.2193">San Manuel Reservation</option>
-        <option value="34.5406,-114.4085">Chemehuevi Reservation</option>
-        <option value="33.9391,-114.3881">Colorado River Indian Reservation</option>
-        <option value="34.9383,-114.6145">Fort Mojave Reservation</option>
-        <option value="32.7966,-114.6762">Fort Yuma Indian Reservation</option>
-        <option value="33.3462,-116.0202">Torres-Martinez Reservation</option>
-        <option value="33.2977,-116.556">Los Coyotes Reservation</option>
-        <option value="33.555,-116.5284">Santa Rosa Reservation</option>
-        <option value="33.1837,-116.6586">Santa Ysabel Reservation</option>
-        <option value="34.6027,-120.0914">Santa Ynez Reservation</option>
-        <option value="32.9558,-116.8436">Barona Reservation</option>
-        <option value="32.6736,-116.3633">Campo Indian Reservation</option>
-        <option value="32.923,-116.7545">Capitan Grande Reservation</option>
-        <option value="32.8501,-116.6926">Viejas Reservation</option>
-        <option value="32.7795,-116.8326">Sycuan Reservation</option>
-        <option value="33.265,-116.8497">La Jolla Reservation</option>
-        <option value="33.3632,-116.9551">Pauma and Yuima Reservation</option>
-        <option value="33.2112,-116.9627">San Pasqual Reservation</option>
-        <option value="33.0105,-116.6416">Inaja and Cosmit Reservation</option>
-        <option value="33.0932,-116.7424">Mesa Grande Reservation</option>
-        <option value="32.7547,-116.3461">Manzanita Reservation</option>
-        <option value="32.7345,-116.3912">La Posta Indian Reservation</option>
-        <option value="32.8416,-116.3856">Ewiiaapaayp Reservation</option>
-        <option value="32.7027,-116.8709">Jamul Indian Village</option>
-        <option value="33.6877,-116.1688">Cabazon Reservation</option>
-        <option value="33.6499,-116.1912">Augustine Reservation</option>
-        <option value="33.7106,-116.1877">Twenty-Nine Palms Reservation</option>
-        <option value="33.6064,-116.7029">Ramona Village</option>
-        <option value="37.4456,-117.5247">Timbi-Sha Shoshone Reservation</option>
-        <option value="39.2535,-122.0244">Colusa Rancheria</option>
-        <option value="39.0183,-122.2904">Cortina Indian Rancheria</option>
-        <option value="38.7381,-122.1325">Rumsey Indian Rancheria</option>
-        <option value="39.8674,-122.2273">Paskenta Rancheria</option>
-        <option value="39.6727,-122.5176">Grindstone Indian Rancheria</option>
-        <option value="39.0204,-122.8871">Big Valley Rancheria</option>
-        <option value="39.1399,-122.8807">Robinson Rancheria</option>
-        <option value="39.0086,-122.6708">Sulphur Bank Rancheria</option>
-        <option value="39.1853,-122.9192">Upper Lake Rancheria</option>
-        <option value="38.7287,-122.6258">Middletown Rancheria</option>
-        <option value="39.2542,-123.2089">Coyote Valley Reservation</option>
-        <option value="39.1654,-123.1699">Guidiville Rancheria</option>
-        <option value="39.1802,-123.2178">Pinoleville Rancheria</option>
-        <option value="39.2902,-123.1797">Redwood Valley Rancheria</option>
-        <option value="38.7025,-122.8565">Dry Creek Rancheria</option>
-        <option value="38.9996,-123.0384">Hopland Rancheria</option>
-        <option value="39.6693,-123.5007">Laytonville Rancheria</option>
-        <option value="39.5371,-123.4883">Sherwood Valley Rancheria</option>
-        <option value="38.9357,-123.6826">Manchester-Point Arena Rancheria</option>
-        <option value="38.6566,-123.339">Stewarts Point Rancheria</option>
-        <option value="37.9526,-122.3344">Lytton Rancheria</option>
-        <option value="40.5101,-122.3846">Redding Rancheria</option>
-        <option value="40.8342,-121.9157">Montgomery Creek Rancheria</option>
-        <option value="40.8933,-121.9535">Roaring Creek Rancheria</option>
-        <option value="41.0264,-121.9189">Big Bend Rancheria</option>
-        <option value="41.2139,-121.0934">Lookout Rancheria</option>
-        <option value="41.2048,-120.4788">Likely Rancheria</option>
-        <option value="41.4777,-120.5244">Alturas Indian Rancheria</option>
-        <option value="41.5262,-120.1837">Cedarville Rancheria</option>
-        <option value="41.8595,-120.1968">Fort Bidwell Reservation</option>
-        <option value="41.5511,-120.453">XL Ranch Rancheria</option>
-        <option value="40.4443,-120.6445">Susanville Indian Rancheria</option>
-        <option value="40.1488,-120.8934">Greenville Rancheria</option>
-        <option value="39.4671,-121.5197">Mooretown Rancheria</option>
-        <option value="39.6256,-121.3279">Berry Creek Rancheria</option>
-        <option value="39.5616,-121.3555">Enterprise Rancheria</option>
-        <option value="38.8404,-121.3148">Auburn Rancheria</option>
-        <option value="38.6967,-120.9049">Shingle Springs Rancheria</option>
-        <option value="38.3849,-120.7226">Jackson Rancheria</option>
-        <option value="37.9273,-120.4534">Chicken Ranch Rancheria</option>
-        <option value="37.9808,-120.2379">Tuolumne Rancheria</option>
-        <option value="37.366,-118.4227">Bishop Reservation</option>
-        <option value="37.159,-118.2851">Big Pine Reservation</option>
-        <option value="37.793,-118.5209">Benton Paiute Reservation</option>
-        <option value="38.2665,-119.2156">Bridgeport Reservation</option>
-        <option value="36.597,-118.056">Lone Pine Reservation</option>
-        <option value="36.8411,-118.2289">Fort Independence Reservation</option>
-        <option value="37.083,-119.4644">Big Sandy Rancheria</option>
-        <option value="37.2275,-119.5135">North Fork Rancheria</option>
-        <option value="37.212,-119.6956">Picayune Rancheria</option>
-        <option value="36.985,-119.6397">Table Mountain Rancheria</option>
-        <option value="36.9716,-119.3242">Cold Springs Rancheria</option>
-        <option value="36.2361,-119.7551">Santa Rosa Rancheria</option>
-        <option value="33.1558,-117.2193">San Manuel Reservation</option>
-        <option value="38.8005,-119.7942">Woodfords Community</option>
-      </optgroup>
-    </select>
-    <button class="manual-loc-btn secondary" onclick="toggleManualPanel()">Cancel</button>
+    <button class="loc-btn loc-btn-primary" id="goCoords">Go to coordinates</button>
+    <div class="loc-divider">or search nearby areas</div>
+    <div class="loc-search">
+      <svg class="loc-search-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <circle cx="6.5" cy="6.5" r="5" stroke="#999" stroke-width="1.5" fill="none"/>
+        <line x1="10" y1="10" x2="15" y2="15" stroke="#999" stroke-width="1.5"/>
+      </svg>
+      <input type="text" class="loc-search-input" id="locSearchInput" placeholder="Search forests, reservations, BLM areas..." aria-label="Search locations">
+    </div>
+    <div class="loc-results" id="locResults" role="listbox" aria-label="Nearby locations"></div>
+    <div class="loc-radius-note" id="locRadiusNote"></div>
+    <button class="loc-btn loc-btn-secondary" id="locPanelCancel">Cancel</button>
   </div>
 </div>
 
 <!-- LOADING OVERLAY -->
-<div class="loading-overlay" id="loadingOverlay">
+<div class="loading-overlay" id="loadingOverlay" role="dialog" aria-label="Loading">
   <div class="loading-box">
     <div class="spinner-lg"></div>
     <p id="loadingText">Finding your location...</p>
   </div>
 </div>
 
-<!-- CONTENT -->
+<!-- ============================================================
+     MOBILE LAYOUT (< 1024px)
+     ============================================================ -->
 <div class="content" id="mainContent">
-
-  <!-- EMPTY STATE (default) -->
   <div class="empty-state" id="emptyState">
-    <div class="es-icon"><img src="icon-512.png" width="200" height="200" alt="Swivel-Head Pro" style="border-radius:16px;"></div>
-    <h3>Welcome to Swivel-Head Pro</h3>
-    <p>Tap <strong>Locate Me</strong> to get wildfire situational awareness for your area.</p>
-    <p style="margin-top:12px;font-size:13px;color:#aaa;">GPS not working? Click the map, or use the manual entry panel.</p>
+    <div class="es-icon"><img src="icon-512.png" width="180" height="180" alt="SitAware"></div>
+    <h3>Welcome to SitAware</h3>
+    <p>Tap the locate button to get wildfire situational awareness for your area.</p>
+    <p style="margin-top:12px;font-size:13px;color:rgba(240,237,228,0.5);">GPS not working? Click the map, or use the manual entry panel.</p>
   </div>
 
   <!-- DATA PANELS (hidden until data loads) -->
-  <div id="dataPanels" style="display:none;">
+  <div id="dataPanels" style="display:none;" aria-live="polite">
+    <!-- Error banner -->
+    <div class="error-banner" id="errorBanner" role="alert">
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5" fill="none"/>
+        <line x1="10" y1="6" x2="10" y2="11" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="10" cy="14" r="1" fill="currentColor"/>
+      </svg>
+      <span class="error-banner-text" id="errorText"></span>
+      <button class="error-banner-retry" id="errorRetry" aria-label="Retry loading data">Retry</button>
+    </div>
 
-    <!-- CURRENT CONDITIONS -->
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">&#x1F321; Current Conditions</span>
-        <span class="card-badge" id="weatherTime" style="color:#999;font-size:11px;"></span>
-      </div>
-      <div class="data-row">
-        <span class="data-label">Temperature</span>
-        <span class="data-value" id="wxTemp">--</span>
-      </div>
-      <div class="data-row">
-        <span class="data-label">Wind</span>
-        <span class="data-value" id="wxWind">--</span>
-      </div>
-      <div class="data-row">
-        <span class="data-label">Relative Humidity</span>
-        <span class="data-value" id="wxRH">--</span>
-      </div>
-      <div class="data-row">
-        <span class="data-label">Conditions</span>
-        <span class="data-value" id="wxConditions">--</span>
-      </div>
-      <div class="data-row pub-only">
-        <span class="data-label">Fire Weather Risk</span>
-        <span class="data-value" id="wxRiskPublic">--</span>
-      </div>
-      <!-- Pro mode extras -->
-      <div class="pro-only">
-        <div class="data-row">
-          <span class="data-label">Dewpoint</span>
-          <span class="data-value" id="wxDewpoint">--</span>
+    <!-- SKELETON LOADERS (shown while fetching) -->
+    <div id="skeletonLoaders" style="display:none;">
+      <div class="card"><div class="skeleton skeleton-block"></div><div class="skeleton skeleton-line short"></div></div>
+      <div class="card-pair"><div class="card"><div class="skeleton skeleton-block"></div></div><div class="card"><div class="skeleton skeleton-block"></div></div></div>
+      <div class="card"><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line short"></div></div>
+    </div>
+
+    <!-- HERO CARD: Current Conditions + PAL -->
+    <div class="card card-hero" id="heroCard">
+      <div class="hero-top">
+        <div>
+          <div class="hero-temp" id="heroTemp">--</div>
+          <div class="hero-condition" id="heroCondition">Loading conditions...</div>
         </div>
-        <div class="data-row">
-          <span class="data-label">Transport Wind</span>
-          <span class="data-value" id="wxTransWind">--</span>
+        <div style="text-align:center;">
+          <div class="pal-badge" id="palBadge">--</div>
+          <div class="pal-badge-label" id="palBadgeLabel" style="color:var(--text-muted);">PAL</div>
         </div>
-        <div class="data-row">
-          <span class="data-label">Mixing Height</span>
-          <span class="data-value" id="wxMixing">--</span>
+      </div>
+      <div class="metric-grid" id="metricGrid">
+        <div class="metric-cell">
+          <div class="metric-label">Wind</div>
+          <div class="metric-value" id="mWind">--</div>
+          <div class="metric-sub" id="mWindDir"></div>
         </div>
-        <div class="data-row">
-          <span class="data-label">Haines Index</span>
-          <span class="data-value" id="wxHaines">--</span>
+        <div class="metric-cell">
+          <div class="metric-label">RH</div>
+          <div class="metric-value" id="mRH">--</div>
+          <div class="metric-sub" id="mRHStatus"></div>
         </div>
-        <div class="data-row">
-          <span class="data-label">Fire Weather Zone</span>
-          <span class="data-value" id="wxFireZone">--</span>
+        <div class="metric-cell">
+          <div class="metric-label">Dewpoint</div>
+          <div class="metric-value" id="mDewpoint">--</div>
+          <div class="metric-sub" id="mDewpointSub"></div>
         </div>
+      </div>
+      <!-- Pro mode: extended metrics -->
+      <div class="metric-grid pro-only-grid" id="metricGridPro" style="display:none;margin-top:1px;">
+        <div class="metric-cell">
+          <div class="metric-label">Mixing ht</div>
+          <div class="metric-value" id="mMixing">--</div>
+          <div class="metric-sub">AGL</div>
+        </div>
+        <div class="metric-cell">
+          <div class="metric-label">Haines</div>
+          <div class="metric-value" id="mHaines">--</div>
+          <div class="metric-sub" id="mHainesSub"></div>
+        </div>
+        <div class="metric-cell">
+          <div class="metric-label">Transport</div>
+          <div class="metric-value" id="mTransport">--</div>
+          <div class="metric-sub" id="mTransportDir"></div>
+        </div>
+      </div>
+      <!-- PAL description + restrictions -->
+      <div id="palSection" style="margin-top:10px;">
+        <div id="palDescription" style="font-size:13px;line-height:1.5;color:var(--cream);"></div>
+        <div class="pal-restrictions" id="palRestrictions"></div>
+        <div class="pal-detail pro-only" id="palProDetail"></div>
       </div>
     </div>
 
-    <!-- PROJECT ACTIVITY LEVEL -->
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title" style="text-transform:none;letter-spacing:0;">&#x1F6A8; Project Activity Level: <span style="font-weight:400;font-size:12px;">Always exercise caution when operating chainsaw powerheads or heavy equipment in the forest during fire season.</span></span>
-        <span class="pal-badge" id="palBadge">--</span>
+    <!-- SIDE-BY-SIDE: Fire Potential + RH Recovery -->
+    <div class="card-pair">
+      <div class="card" id="fpCard">
+        <div class="card-label">7-day outlook</div>
+        <div class="fp-bars" id="fpBars"></div>
+        <div class="pro-only" id="fpProDetail" style="margin-top:8px;"></div>
       </div>
-      <div id="palDescription" style="font-size:14px;line-height:1.5;margin-bottom:12px;"></div>
-      <div id="palRestrictions"></div>
-      <!-- Pro mode: PAL detail table -->
-      <div class="pro-only" id="palProDetail" style="margin-top:12px;"></div>
-    </div>
-
-
-    <!-- 7-DAY FIRE POTENTIAL (NWCG) -->
-    <div class="card" id="firePotentialCard" style="display:none;">
-      <div class="card-header">
-        <span class="card-title">&#x1F525; 7-Day Fire Potential</span>
-        <span class="card-badge" id="fpSource" style="color:#999;font-size:11px;">NWCG Predictive Services</span>
-      </div>
-      <div class="fp-psa-info" id="fpPsaInfo"></div>
-      <div class="fp-strip" id="fpStrip"></div>
-      <div class="pro-only" id="fpProDetail" style="margin-top:12px;"></div>
-    </div>
-
-    <!-- OVERNIGHT RH RECOVERY -->
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">&#x1F4A7; Humidity Recovery</span>
-        <span class="card-badge" id="recoveryStatus" style="font-size:11px;"></span>
-      </div>
-      <div id="recoveryPublic" class="pub-only" style="font-size:14px;line-height:1.5;"></div>
-      <div class="pro-only">
-        <div class="rh-bar-container">
-          <div class="rh-bar-label">
-            <span>Current RH</span>
-            <span id="rhCurrent">--%</span>
-          </div>
-          <div class="rh-bar">
-            <div class="rh-bar-fill" id="rhBarFill" style="width:0%;background:var(--forest);"></div>
-            <div class="rh-bar-threshold" id="rhThreshold" style="left:25%;" title="25% critical threshold"></div>
-          </div>
+      <div class="card" id="rhCard">
+        <div class="card-label">RH recovery</div>
+        <div class="rh-recovery-summary">
+          <span class="rh-recovery-grade" id="rhGrade">--</span>
         </div>
-        <div style="margin-top:12px;">
-          <div class="rh-bar-label"><span>Overnight Recovery Trend</span></div>
-          <div class="recovery-chart" id="recoveryChart"></div>
-          <div class="recovery-time" id="recoveryTime"></div>
-        </div>
-        <div class="data-row" style="margin-top:8px;">
-          <span class="data-label">Min RH (next 24h)</span>
-          <span class="data-value" id="rhMin">--</span>
-        </div>
-        <div class="data-row">
-          <span class="data-label">Max RH (overnight)</span>
-          <span class="data-value" id="rhMax">--</span>
-        </div>
-        <div class="data-row">
-          <span class="data-label">Recovery Adequate?</span>
-          <span class="data-value" id="rhRecoveryAdequate">--</span>
-        </div>
+        <div class="rh-recovery-note" id="rhNote"></div>
+        <div class="rh-alert" id="rhAlert"></div>
       </div>
     </div>
 
     <!-- FORECAST -->
     <div class="card">
-      <div class="card-header">
-        <span class="card-title">&#x26C5; Forecast</span>
-      </div>
+      <div class="card-label">Hourly forecast</div>
       <div class="forecast-strip" id="forecastStrip"></div>
     </div>
 
-    <!-- SAFETY PRECAUTIONS -->
-    <div class="card">
+    <!-- PRECAUTIONS -->
+    <div class="card" id="precautionsCard">
       <div class="card-header">
-        <span class="card-title">&#x1F6E1; Safety Precautions</span>
+        <div class="card-label">
+          <svg class="card-label-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M8 1L1 15h14L8 1z" stroke="currentColor" stroke-width="1.2" fill="none"/>
+          </svg>
+          <span id="precautionsLabel" style="color:var(--orange);font-weight:500;">Active precautions</span>
+        </div>
       </div>
       <div id="precautionsList"></div>
     </div>
 
     <!-- PRO: FIRE WEATHER INDICES -->
-    <div class="card pro-only">
+    <div class="card pro-only" id="indicesCard">
       <div class="card-header">
-        <span class="card-title">&#x1F4CA; Fire Weather Indices</span>
-        <span style="font-size:11px;color:#999;">From weather.gov gridpoint data</span>
+        <div class="card-label">Fire weather indices</div>
+        <span style="font-size:10px;color:var(--text-dim);">weather.gov gridpoint</span>
       </div>
       <table class="pro-table">
-        <thead>
-          <tr><th>Index</th><th>Value</th><th>Trend</th></tr>
-        </thead>
+        <thead><tr><th>Index</th><th>Value</th><th>Trend</th></tr></thead>
         <tbody id="indicesTable"></tbody>
       </table>
     </div>
 
+    <!-- PRO: Detailed RH -->
+    <div class="card pro-only" id="rhDetailCard">
+      <div class="card-header">
+        <div class="card-label">Humidity detail</div>
+      </div>
+      <div class="rh-bar-container">
+        <div class="rh-bar-header">
+          <span>Current RH</span>
+          <span id="rhCurrent">--%</span>
+        </div>
+        <div class="rh-bar">
+          <div class="rh-bar-fill" id="rhBarFill" style="width:0%;"></div>
+          <div class="rh-bar-threshold" id="rhThreshold" style="left:25%;" title="25% critical threshold"></div>
+        </div>
+      </div>
+      <div style="margin-top:10px;">
+        <div class="rh-bar-header"><span>Overnight recovery trend</span></div>
+        <div class="recovery-chart" id="recoveryChart"></div>
+        <div class="recovery-time" id="recoveryTime"></div>
+      </div>
+      <div class="data-row" style="margin-top:6px;">
+        <span class="data-label">Min RH (next 24h)</span>
+        <span class="data-value" id="rhMin">--</span>
+      </div>
+      <div class="data-row">
+        <span class="data-label">Max RH (overnight)</span>
+        <span class="data-value" id="rhMax">--</span>
+      </div>
+      <div class="data-row">
+        <span class="data-label">Recovery adequate?</span>
+        <span class="data-value" id="rhRecoveryAdequate">--</span>
+      </div>
+    </div>
+
     <!-- DATA SOURCES -->
-    <div class="source-note">
-      Data sourced from <a href="https://weather.gov" target="_blank" rel="noopener noreferrer">weather.gov</a>,
+    <div class="source-footer">
+      Data sourced from
+      <a href="https://weather.gov" target="_blank" rel="noopener noreferrer">weather.gov</a>,
       <a href="https://apps.fs.usda.gov" target="_blank" rel="noopener noreferrer">USFS</a>,
       <a href="https://gis.blm.gov" target="_blank" rel="noopener noreferrer">BLM</a>,
       <a href="https://gacc.nifc.gov" target="_blank" rel="noopener noreferrer">GACC/NIFC</a>,
       <a href="https://fsapps.nwcg.gov" target="_blank" rel="noopener noreferrer">NWCG</a>, and
-      <a href="https://tigerweb.geo.census.gov" target="_blank" rel="noopener noreferrer">Census TIGERweb</a><br>
-      <span style="display:block;margin:8px 0;font-size:12px;color:rgba(253,245,230,0.75);font-weight:600;">Designed and Created by Basho Parks &mdash; 2026</span>
+      <a href="https://tigerweb.geo.census.gov" target="_blank" rel="noopener noreferrer">Census TIGERweb</a>
+      <span class="source-footer-credit">Designed and Created by Basho Parks &mdash; 2026</span>
       Last updated: <span id="lastUpdated">--</span>
     </div>
+  </div>
+</div>
 
-  </div><!-- /dataPanels -->
-</div><!-- /content -->
+<!-- ============================================================
+     DESKTOP LAYOUT (>= 1024px) - mirrors mobile but two-column
+     This is populated dynamically by JS on resize
+     ============================================================ -->
+<div class="desktop-layout" id="desktopLayout"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"
   integrity="sha512-puJW3E/qXDqYp9IfhAI54BJEaWIfloJ7JWs7OeD5i6ruC9JZL1gERT1wjtwXFlh7CjE7ZJ+/vcRZRkIYIb6p4g=="
   crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
 // ============================================================
-// SWIVEL-HEAD PRO - CORE APPLICATION
+// SITAWARE - CORE APPLICATION (REFACTORED)
 // ============================================================
 
+// --- CONFIG: Single source of truth for thresholds ---
+const THRESHOLDS = {
+  RH_CRITICAL: 15,
+  RH_LOW: 25,
+  RH_RECOVERY: 30,
+  RH_GOOD_RECOVERY: 40,
+  WIND_MODERATE: 10,
+  WIND_HIGH: 15,
+  WIND_VERY_HIGH: 25,
+  WIND_EXTREME: 35,
+  HAINES_HIGH: 5,
+  HAINES_MODERATE: 4,
+  FIRE_RISK_EXTREME_RH: 10,
+  FIRE_RISK_VERY_HIGH_RH: 15,
+  FIRE_RISK_HIGH_WIND: 25,
+  FIRE_RISK_MOD_WIND: 15,
+  MAX_NEARBY_DISTANCE_MI: 50
+};
+
+// --- LOCATION DATABASE (replaces hardcoded dropdown) ---
+const LOCATIONS = [
+  // R5 - Pacific Southwest (ONCC)
+  {name:"Six Rivers NF",lat:40.9,lon:-123.5,type:"NF",region:"R5"},
+  {name:"Shasta-Trinity NF",lat:41.3,lon:-122.5,type:"NF",region:"R5"},
+  {name:"Mendocino NF",lat:40.5,lon:-122.8,type:"NF",region:"R5"},
+  {name:"Plumas NF",lat:39.5,lon:-121.0,type:"NF",region:"R5"},
+  {name:"Tahoe NF",lat:39.1,lon:-120.6,type:"NF",region:"R5"},
+  {name:"Eldorado NF",lat:38.8,lon:-120.5,type:"NF",region:"R5"},
+  {name:"Stanislaus NF",lat:38.5,lon:-119.8,type:"NF",region:"R5"},
+  {name:"Sierra NF",lat:37.5,lon:-119.2,type:"NF",region:"R5"},
+  {name:"Sequoia NF",lat:36.5,lon:-118.5,type:"NF",region:"R5"},
+  {name:"Los Padres NF",lat:34.7,lon:-119.0,type:"NF",region:"R5"},
+  {name:"Angeles NF",lat:34.3,lon:-117.7,type:"NF",region:"R5"},
+  {name:"San Bernardino NF",lat:34.2,lon:-118.2,type:"NF",region:"R5"},
+  {name:"Cleveland NF",lat:33.5,lon:-116.8,type:"NF",region:"R5"},
+  {name:"Klamath NF",lat:40.0,lon:-123.0,type:"NF",region:"R5"},
+  {name:"Lassen NF",lat:39.0,lon:-122.0,type:"NF",region:"R5"},
+  {name:"Modoc NF",lat:41.0,lon:-121.5,type:"NF",region:"R5"},
+  {name:"Inyo NF",lat:37.8,lon:-119.5,type:"NF",region:"R5"},
+  // R6 - Pacific Northwest (NWCC)
+  {name:"Mt. Hood NF",lat:45.3,lon:-121.8,type:"NF",region:"R6"},
+  {name:"Deschutes NF",lat:44.0,lon:-121.7,type:"NF",region:"R6"},
+  {name:"Willamette NF",lat:44.2,lon:-122.0,type:"NF",region:"R6"},
+  {name:"Rogue River-Siskiyou NF",lat:42.5,lon:-122.5,type:"NF",region:"R6"},
+  {name:"Umpqua NF",lat:43.5,lon:-123.0,type:"NF",region:"R6"},
+  {name:"Mt. Baker-Snoqualmie NF",lat:47.5,lon:-121.2,type:"NF",region:"R6"},
+  {name:"Gifford Pinchot NF",lat:46.5,lon:-121.5,type:"NF",region:"R6"},
+  {name:"Okanogan-Wenatchee NF",lat:48.0,lon:-120.5,type:"NF",region:"R6"},
+  {name:"Umatilla NF",lat:46.0,lon:-118.5,type:"NF",region:"R6"},
+  {name:"Malheur NF",lat:44.5,lon:-118.5,type:"NF",region:"R6"},
+  {name:"Ochoco NF",lat:44.0,lon:-119.0,type:"NF",region:"R6"},
+  {name:"Fremont-Winema NF",lat:42.0,lon:-121.0,type:"NF",region:"R6"},
+  // R1 - Northern (NRCC)
+  {name:"Lolo NF",lat:46.8,lon:-113.8,type:"NF",region:"R1"},
+  {name:"Flathead NF",lat:47.5,lon:-115.0,type:"NF",region:"R1"},
+  {name:"Bitterroot NF",lat:46.0,lon:-114.5,type:"NF",region:"R1"},
+  {name:"Idaho Panhandle NF",lat:47.0,lon:-116.0,type:"NF",region:"R1"},
+  {name:"Nez Perce-Clearwater NF",lat:45.5,lon:-114.0,type:"NF",region:"R1"},
+  // R2 - Rocky Mountain (RMCC)
+  {name:"Arapaho-Roosevelt NF",lat:39.6,lon:-105.8,type:"NF",region:"R2"},
+  {name:"White River NF",lat:39.0,lon:-106.5,type:"NF",region:"R2"},
+  {name:"Pike-San Isabel NF",lat:38.5,lon:-106.0,type:"NF",region:"R2"},
+  {name:"San Juan NF",lat:37.5,lon:-107.5,type:"NF",region:"R2"},
+  // R3 - Southwestern (SWCC)
+  {name:"Santa Fe NF",lat:35.8,lon:-105.8,type:"NF",region:"R3"},
+  {name:"Gila NF",lat:33.4,lon:-108.8,type:"NF",region:"R3"},
+  {name:"Coconino NF",lat:34.5,lon:-111.5,type:"NF",region:"R3"},
+  {name:"Prescott NF",lat:34.8,lon:-111.8,type:"NF",region:"R3"},
+  {name:"Apache-Sitgreaves NF",lat:34.0,lon:-109.5,type:"NF",region:"R3"},
+  {name:"Coronado NF",lat:32.5,lon:-110.7,type:"NF",region:"R3"},
+  {name:"Carson NF",lat:36.0,lon:-105.5,type:"NF",region:"R3"},
+  {name:"Lincoln NF",lat:33.5,lon:-105.5,type:"NF",region:"R3"},
+  // R4 - Intermountain (GBCC)
+  {name:"Sawtooth NF",lat:43.5,lon:-114.5,type:"NF",region:"R4"},
+  {name:"Caribou-Targhee NF",lat:44.5,lon:-111.0,type:"NF",region:"R4"},
+  {name:"Humboldt-Toiyabe NF",lat:42.0,lon:-115.0,type:"NF",region:"R4"},
+  {name:"Uinta-Wasatch-Cache NF",lat:40.5,lon:-111.5,type:"NF",region:"R4"},
+  {name:"Bridger-Teton NF",lat:43.0,lon:-110.5,type:"NF",region:"R4"},
+  // R8 - Southern (SACC)
+  {name:"Nantahala NF",lat:35.5,lon:-83.5,type:"NF",region:"R8"},
+  {name:"Pisgah NF",lat:35.8,lon:-82.5,type:"NF",region:"R8"},
+  // R9 - Eastern (EACC)
+  {name:"Chequamegon-Nicolet NF",lat:46.5,lon:-89.0,type:"NF",region:"R9"},
+  {name:"Superior NF",lat:47.5,lon:-91.5,type:"NF",region:"R9"},
+  {name:"Huron-Manistee NF",lat:44.5,lon:-84.0,type:"NF",region:"R9"},
+  {name:"White Mountain NF",lat:44.0,lon:-71.5,type:"NF",region:"R9"},
+  {name:"Green Mountain NF",lat:43.0,lon:-73.0,type:"NF",region:"R9"},
+  // BLM
+  {name:"BLM - Battle Mountain District, NV",lat:39.5,lon:-116.8,type:"BLM"},
+  {name:"BLM - Boise District, ID",lat:43.6,lon:-116.2,type:"BLM"},
+  {name:"BLM - Moab Field Office, UT",lat:38.5,lon:-109.5,type:"BLM"},
+  {name:"BLM - Arizona Strip, AZ",lat:36.9,lon:-111.5,type:"BLM"},
+  {name:"BLM - Vale District, OR",lat:42.8,lon:-117.5,type:"BLM"},
+  {name:"BLM - Cody Field Office, WY",lat:44.8,lon:-108.0,type:"BLM"},
+  {name:"BLM - Winnemucca District, NV",lat:40.5,lon:-117.5,type:"BLM"},
+  {name:"BLM - San Luis Valley, CO",lat:37.0,lon:-105.5,type:"BLM"},
+  {name:"BLM - Rio Puerco Field Office, NM",lat:35.2,lon:-106.5,type:"BLM"},
+  {name:"BLM - Lewistown Field Office, MT",lat:46.8,lon:-109.5,type:"BLM"},
+  // State Parks
+  {name:"Humboldt Redwoods SP, CA",lat:40.35,lon:-123.96,type:"SP"},
+  {name:"Big Sur / Pfeiffer SP, CA",lat:36.25,lon:-121.8,type:"SP"},
+  {name:"Mt. Tamalpais SP, CA",lat:37.75,lon:-122.5,type:"SP"},
+  {name:"Jedediah Smith Redwoods SP, CA",lat:41.65,lon:-124.1,type:"SP"},
+  {name:"Mt. San Jacinto SP, CA",lat:34.0,lon:-116.9,type:"SP"},
+  {name:"Forest Park, Portland, OR",lat:45.5,lon:-122.7,type:"SP"},
+  // California Tribal Territories
+  {name:"Yurok Reservation",lat:41.3809,lon:-123.905,type:"Tribal"},
+  {name:"Hoopa Valley Reservation",lat:41.0934,lon:-123.6734,type:"Tribal"},
+  {name:"Karuk Reservation",lat:41.8009,lon:-123.3767,type:"Tribal"},
+  {name:"Blue Lake Rancheria",lat:40.8834,lon:-123.998,type:"Tribal"},
+  {name:"Big Lagoon Rancheria",lat:41.1643,lon:-124.1208,type:"Tribal"},
+  {name:"Trinidad Rancheria",lat:41.0542,lon:-124.1305,type:"Tribal"},
+  {name:"Table Bluff Reservation",lat:40.6907,lon:-124.2522,type:"Tribal"},
+  {name:"Resighini Rancheria",lat:41.5145,lon:-124.0166,type:"Tribal"},
+  {name:"Elk Valley Rancheria",lat:41.7603,lon:-124.1565,type:"Tribal"},
+  {name:"Smith River Rancheria",lat:41.9554,lon:-124.2064,type:"Tribal"},
+  {name:"Quartz Valley Reservation",lat:41.6115,lon:-122.9724,type:"Tribal"},
+  {name:"Round Valley Reservation",lat:39.8642,lon:-123.1884,type:"Tribal"},
+  {name:"Tule River Reservation",lat:36.0453,lon:-118.7302,type:"Tribal"},
+  {name:"Morongo Reservation",lat:33.9529,lon:-116.8078,type:"Tribal"},
+  {name:"Agua Caliente Indian Reservation",lat:33.7877,lon:-116.532,type:"Tribal"},
+  {name:"Pala Reservation",lat:33.3614,lon:-117.049,type:"Tribal"},
+  {name:"Pechanga Reservation",lat:33.4403,lon:-117.048,type:"Tribal"},
+  {name:"Rincon Reservation",lat:33.2648,lon:-116.959,type:"Tribal"},
+  {name:"Soboba Reservation",lat:33.7741,lon:-116.8807,type:"Tribal"},
+  {name:"Cahuilla Reservation",lat:33.5202,lon:-116.7118,type:"Tribal"},
+  {name:"San Manuel Reservation",lat:34.1558,lon:-117.2193,type:"Tribal"},
+  {name:"Chemehuevi Reservation",lat:34.5406,lon:-114.4085,type:"Tribal"},
+  {name:"Colorado River Indian Reservation",lat:33.9391,lon:-114.3881,type:"Tribal"},
+  {name:"Fort Mojave Reservation",lat:34.9383,lon:-114.6145,type:"Tribal"},
+  {name:"Fort Yuma Indian Reservation",lat:32.7966,lon:-114.6762,type:"Tribal"},
+  {name:"Torres-Martinez Reservation",lat:33.3462,lon:-116.0202,type:"Tribal"},
+  {name:"Los Coyotes Reservation",lat:33.2977,lon:-116.556,type:"Tribal"},
+  {name:"Santa Rosa Reservation",lat:33.555,lon:-116.5284,type:"Tribal"},
+  {name:"Santa Ysabel Reservation",lat:33.1837,lon:-116.6586,type:"Tribal"},
+  {name:"Santa Ynez Reservation",lat:34.6027,lon:-120.0914,type:"Tribal"},
+  {name:"Barona Reservation",lat:32.9558,lon:-116.8436,type:"Tribal"},
+  {name:"Campo Indian Reservation",lat:32.6736,lon:-116.3633,type:"Tribal"},
+  {name:"Viejas Reservation",lat:32.8501,lon:-116.6926,type:"Tribal"},
+  {name:"Sycuan Reservation",lat:32.7795,lon:-116.8326,type:"Tribal"},
+  {name:"La Jolla Reservation",lat:33.265,lon:-116.8497,type:"Tribal"},
+  {name:"Pauma and Yuima Reservation",lat:33.3632,lon:-116.9551,type:"Tribal"},
+  {name:"San Pasqual Reservation",lat:33.2112,lon:-116.9627,type:"Tribal"},
+  {name:"Bishop Reservation",lat:37.366,lon:-118.4227,type:"Tribal"},
+  {name:"Big Pine Reservation",lat:37.159,lon:-118.2851,type:"Tribal"},
+  {name:"Redding Rancheria",lat:40.5101,lon:-122.3846,type:"Tribal"},
+  {name:"Susanville Indian Rancheria",lat:40.4443,lon:-120.6445,type:"Tribal"},
+  {name:"Colusa Rancheria",lat:39.2535,lon:-122.0244,type:"Tribal"},
+  {name:"Hopland Rancheria",lat:38.9996,lon:-123.0384,type:"Tribal"},
+  {name:"Coyote Valley Reservation",lat:39.2542,lon:-123.2089,type:"Tribal"},
+  {name:"Laytonville Rancheria",lat:39.6693,lon:-123.5007,type:"Tribal"},
+];
+
+// --- APP STATE ---
 const APP = {
   map: null,
   mapAvailable: false,
@@ -1235,89 +1516,162 @@ const APP = {
   userLat: null,
   userLon: null,
   proMode: false,
+  darkMode: true,
   forestData: null,
-  landData: null,   // BLM/State/NPS land from SMA endpoint
-  tribalData: null,  // Tribal reservation from Census TIGERweb
+  landData: null,
+  tribalData: null,
   weatherData: null,
+  weatherMeta: null,
   gridData: null,
   alertsData: null,
   firePotentialData: null,
-  notificationsEnabled: false,
+  forecastData: null,
+  hourlyData: null,
+  fireAlerts: null,
+  errors: [],
 
-  // USFS ArcGIS endpoint for National Forest boundaries
-  // Primary: ArcGIS Online mirror (apps.fs.usda.gov was returning 500s as of April 2026)
   USFS_URL: 'https://services9.arcgis.com/5rkKDrGuFJxI7V5b/arcgis/rest/services/S_USA_AdministrativeForest/FeatureServer/0/query',
   USFS_FALLBACK_URL: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_ForestSystemBoundaries_01/MapServer/0/query',
-
-  // Census TIGERweb - Federal American Indian Reservations
   TRIBAL_URL: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2023/MapServer',
-
-  // BLM Surface Management Agency endpoint (covers ALL federal/state/local lands)
   SMA_URL: 'https://gis.blm.gov/arcgis/rest/services/lands/BLM_Natl_SMA_Cached_without_PriUnk/MapServer/1/query',
 
-  // Agency code to readable name
   AGENCY_NAMES: {
-    'BLM': 'Bureau of Land Management',
-    'NPS': 'National Park Service',
-    'FS':  'US Forest Service',
-    'FWS': 'US Fish & Wildlife Service',
-    'BOR': 'Bureau of Reclamation',
-    'BIA': 'Bureau of Indian Affairs',
-    'DOD': 'Department of Defense',
-    'ST':  'State Lands',
-    'LG':  'Local Government',
-    'PVT': 'Private',
-    'UND': 'Undetermined'
+    'BLM':'Bureau of Land Management','NPS':'National Park Service','FS':'US Forest Service',
+    'FWS':'US Fish & Wildlife Service','BOR':'Bureau of Reclamation','BIA':'Bureau of Indian Affairs',
+    'DOD':'Department of Defense','ST':'State Lands','LG':'Local Government','PVT':'Private','UND':'Undetermined'
   },
-
-  // Region to GACC mapping
-  REGION_GACC: {
-    '01': 'NRCC', '02': 'RMCC', '03': 'SWCC', '04': 'GBCC',
-    '05': 'ONCC', '06': 'NWCC', '08': 'SACC', '09': 'EACC',
-    '10': 'AKCC'
-  },
+  REGION_GACC: {'01':'NRCC','02':'RMCC','03':'SWCC','04':'GBCC','05':'ONCC','06':'NWCC','08':'SACC','09':'EACC','10':'AKCC'},
   REGION_NAMES: {
-    '01': 'Northern (R1)', '02': 'Rocky Mountain (R2)', '03': 'Southwestern (R3)',
-    '04': 'Intermountain (R4)', '05': 'Pacific Southwest (R5)',
-    '06': 'Pacific Northwest (R6)', '08': 'Southern (R8)',
-    '09': 'Eastern (R9)', '10': 'Alaska (R10)'
+    '01':'Northern (R1)','02':'Rocky Mountain (R2)','03':'Southwestern (R3)',
+    '04':'Intermountain (R4)','05':'Pacific Southwest (R5)',
+    '06':'Pacific Northwest (R6)','08':'Southern (R8)',
+    '09':'Eastern (R9)','10':'Alaska (R10)'
   }
 };
+
+// ============================================================
+// HAVERSINE DISTANCE (miles)
+// ============================================================
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 3959;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// ============================================================
+// LOCATION FILTER (50-mile radius)
+// ============================================================
+function getNearbyLocations(lat, lon, maxMiles) {
+  return LOCATIONS
+    .map(loc => ({ ...loc, distance: haversine(lat, lon, loc.lat, loc.lon) }))
+    .filter(loc => loc.distance <= maxMiles)
+    .sort((a, b) => a.distance - b.distance);
+}
+
+function renderLocationResults(locations) {
+  const container = document.getElementById('locResults');
+  if (locations.length === 0) {
+    container.innerHTML = '<div style="padding:12px;text-align:center;font-size:12px;color:#999;">No areas found within 50 miles. Try entering coordinates directly.</div>';
+    container.classList.add('visible');
+    return;
+  }
+  container.innerHTML = locations.map(loc =>
+    `<div class="loc-result-item" role="option" data-lat="${loc.lat}" data-lon="${loc.lon}">
+      <div>
+        <div class="loc-result-name">${loc.name}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span class="loc-result-type">${loc.type}</span>
+        <span class="loc-result-dist">${Math.round(loc.distance)} mi</span>
+      </div>
+    </div>`
+  ).join('');
+  container.classList.add('visible');
+
+  // Add click handlers
+  container.querySelectorAll('.loc-result-item').forEach(item => {
+    item.addEventListener('click', function() {
+      const lat = parseFloat(this.dataset.lat);
+      const lon = parseFloat(this.dataset.lon);
+      clearLocationError();
+      loadLocationData(lat, lon);
+    });
+  });
+}
+
+function updateLocationFilter() {
+  if (APP.userLat === null || APP.userLon === null) return;
+  const nearby = getNearbyLocations(APP.userLat, APP.userLon, THRESHOLDS.MAX_NEARBY_DISTANCE_MI);
+  renderLocationResults(nearby);
+  const note = document.getElementById('locRadiusNote');
+  note.textContent = `${nearby.length} area${nearby.length !== 1 ? 's' : ''} within 50 miles`;
+}
+
+function filterLocationsBySearch(query) {
+  const q = query.toLowerCase().trim();
+  if (!q) {
+    if (APP.userLat !== null) {
+      updateLocationFilter();
+    } else {
+      document.getElementById('locResults').classList.remove('visible');
+    }
+    return;
+  }
+
+  let results = LOCATIONS.filter(loc => loc.name.toLowerCase().includes(q));
+  if (APP.userLat !== null) {
+    results = results.map(loc => ({ ...loc, distance: haversine(APP.userLat, APP.userLon, loc.lat, loc.lon) }));
+    results.sort((a, b) => a.distance - b.distance);
+  } else {
+    results = results.map(loc => ({ ...loc, distance: null }));
+  }
+  results = results.slice(0, 15);
+
+  const container = document.getElementById('locResults');
+  if (results.length === 0) {
+    container.innerHTML = '<div style="padding:12px;text-align:center;font-size:12px;color:#999;">No matching areas found.</div>';
+  } else {
+    container.innerHTML = results.map(loc =>
+      `<div class="loc-result-item" role="option" data-lat="${loc.lat}" data-lon="${loc.lon}">
+        <div><div class="loc-result-name">${loc.name}</div></div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span class="loc-result-type">${loc.type}</span>
+          ${loc.distance !== null ? `<span class="loc-result-dist">${Math.round(loc.distance)} mi</span>` : ''}
+        </div>
+      </div>`
+    ).join('');
+  }
+  container.classList.add('visible');
+
+  container.querySelectorAll('.loc-result-item').forEach(item => {
+    item.addEventListener('click', function() {
+      const lat = parseFloat(this.dataset.lat);
+      const lon = parseFloat(this.dataset.lon);
+      clearLocationError();
+      loadLocationData(lat, lon);
+    });
+  });
+}
 
 // ============================================================
 // MAP INITIALIZATION
 // ============================================================
 function initMap() {
   if (typeof L === 'undefined') {
-    console.warn('Leaflet not available - map disabled. App will still function with manual location entry.');
     APP.mapAvailable = false;
-    // Show fallback in map container
     const container = document.getElementById('map');
-    container.innerHTML = `
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;
-        background:var(--cream-dark);color:var(--black);text-align:center;padding:20px;">
-        <div style="font-size:36px;margin-bottom:10px;">&#x1F5FA;</div>
-        <div style="font-size:14px;font-weight:600;color:var(--forest);margin-bottom:6px;">Map unavailable in this viewer</div>
-        <div style="font-size:12px;color:#888;max-width:260px;line-height:1.4;">
-          Use the dropdown or enter coordinates below. For full map, open this file via localhost.
-        </div>
-      </div>`;
+    container.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:var(--cream-dark);color:var(--black);text-align:center;padding:20px;"><div style="font-size:14px;font-weight:600;color:var(--forest-mid);margin-bottom:6px;">Map unavailable</div><div style="font-size:12px;color:#888;max-width:260px;line-height:1.4;">Use the search or enter coordinates below.</div></div>';
     return;
   }
-
   try {
-    APP.map = L.map('map', {
-      center: [39.8283, -98.5795],
-      zoom: 4,
-      zoomControl: true,
-      attributionControl: true
-    });
-
+    APP.map = L.map('map', { center: [39.8283, -98.5795], zoom: 4, zoomControl: true, attributionControl: true });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
-      maxZoom: 18
+      attribution: '&copy; OpenStreetMap contributors', maxZoom: 18
     }).addTo(APP.map);
-
     APP.mapAvailable = true;
   } catch (err) {
     console.error('Map init failed:', err);
@@ -1330,22 +1684,17 @@ function initMap() {
 // ============================================================
 async function geolocateUser() {
   const btn = document.getElementById('locateBtn');
-
-  // Detect environments where geolocation will be blocked
   const inIframe = window.self !== window.top;
   const onForeignHost = window.location.hostname.includes('claudeusercontent.com');
 
   if (!navigator.geolocation || onForeignHost || (inIframe && window.isSecureContext === false)) {
-    showLocationError('GPS is not available in this viewer. Select a forest or enter coordinates below.');
-    document.getElementById('manualLocPanel').classList.add('visible');
+    showLocationError('GPS is not available in this viewer. Select a location or enter coordinates below.');
+    document.getElementById('locPanel').classList.add('visible');
     return;
   }
-
   if (window.isSecureContext === false) {
-    showLocationError(
-      'GPS requires HTTPS or localhost. Serve this folder with "python -m http.server 8080" and visit localhost:8080, or enter coordinates below.'
-    );
-    document.getElementById('manualLocPanel').classList.add('visible');
+    showLocationError('GPS requires HTTPS or localhost. Enter coordinates below.');
+    document.getElementById('locPanel').classList.add('visible');
     return;
   }
 
@@ -1355,64 +1704,72 @@ async function geolocateUser() {
   try {
     const pos = await new Promise((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 60000
+        enableHighAccuracy: true, timeout: 15000, maximumAge: 60000
       });
     });
-
     await loadLocationData(pos.coords.latitude, pos.coords.longitude);
-
   } catch (err) {
-    console.log('Geolocation unavailable:', err.message || err);
     const errStr = String(err.message || err).toLowerCase();
     let msg;
     if (errStr.includes('permissions policy') || errStr.includes('permission denied') || err.code === 1) {
-      msg = 'GPS is blocked in this viewer. Select a forest from the dropdown or enter coordinates.';
+      msg = 'GPS is blocked. Select a location from the search or enter coordinates.';
     } else if (err.code === 2) {
       msg = 'Location unavailable (GPS/network error). Try manual entry.';
     } else if (err.code === 3) {
       msg = 'Location request timed out. Try manual entry.';
     } else {
-      msg = 'GPS unavailable here. Select a forest or enter coordinates below.';
+      msg = 'GPS unavailable. Select a location or enter coordinates below.';
     }
     showLocationError(msg);
-    // Ensure manual panel is visible
-    document.getElementById('manualLocPanel').classList.add('visible');
+    document.getElementById('locPanel').classList.add('visible');
     hideLoading();
   } finally {
     btn.classList.remove('loading');
   }
 }
 
-// Core data loading function - used by GPS, manual coords, and forest selector
+// ============================================================
+// CORE DATA LOADING
+// ============================================================
 async function loadLocationData(lat, lon) {
-  showLoading('Identifying land jurisdiction...');
+  showLoading('Identifying jurisdiction...');
   APP.userLat = lat;
   APP.userLon = lon;
+  APP.errors = [];
 
-  // Clear previous boundary layers before loading new location
+  // Show coords on map
+  const coordsEl = document.getElementById('mapCoords');
+  coordsEl.textContent = `${lat.toFixed(4)}\u00B0N, ${Math.abs(lon).toFixed(4)}\u00B0W`;
+  coordsEl.classList.add('visible');
+
+  // Show skeleton loaders
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('dataPanels').style.display = 'block';
+  document.getElementById('skeletonLoaders').style.display = 'block';
+
+  // Clear previous layers
   if (APP.mapAvailable) {
     if (APP.forestLayer) { APP.map.removeLayer(APP.forestLayer); APP.forestLayer = null; }
     if (APP.tribalLayer) { APP.map.removeLayer(APP.tribalLayer); APP.tribalLayer = null; }
   }
 
-  // Update map (if available)
+  // Update map
   if (APP.mapAvailable) {
-    APP.map.setView([APP.userLat, APP.userLon], 10);
+    APP.map.setView([lat, lon], 10);
     if (APP.userMarker) APP.map.removeLayer(APP.userMarker);
-    APP.userMarker = L.marker([APP.userLat, APP.userLon], {
+    APP.userMarker = L.marker([lat, lon], {
       icon: L.divIcon({
         className: 'user-marker',
-        html: '<div style="width:16px;height:16px;background:#D4702A;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.4);"></div>',
-        iconSize: [16, 16],
-        iconAnchor: [8, 8]
+        html: '<div style="width:14px;height:14px;background:var(--orange);border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.4);"></div>',
+        iconSize: [14, 14], iconAnchor: [7, 7]
       })
     }).addTo(APP.map).bindPopup(`${lat.toFixed(4)}, ${lon.toFixed(4)}`);
   }
 
+  // Update location filter with nearby results
+  updateLocationFilter();
+
   try {
-    // Fetch land jurisdiction and tribal territory in parallel
     await Promise.all([fetchForestData(), fetchTribalData()]);
     showLoading('Pulling weather data...');
     await fetchWeatherData();
@@ -1421,225 +1778,169 @@ async function loadLocationData(lat, lon) {
     showLoading('Fetching fire potential...');
     await fetchFirePotential();
 
+    // Hide skeletons, render data
+    document.getElementById('skeletonLoaders').style.display = 'none';
     renderAll();
 
-    document.getElementById('emptyState').style.display = 'none';
-    document.getElementById('dataPanels').style.display = 'block';
+    // Update header context
+    updateHeaderContext();
+    const updEl = document.getElementById('headerUpdated');
+    updEl.textContent = 'Updated just now';
+    updEl.classList.add('visible');
     document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
 
-    // Close manual panel if open
-    document.getElementById('manualLocPanel').classList.remove('visible');
+    // Show errors if any
+    if (APP.errors.length > 0) {
+      showErrorBanner(APP.errors.join(' | '));
+    } else {
+      hideErrorBanner();
+    }
+
+    document.getElementById('locPanel').classList.remove('visible');
     clearLocationError();
 
   } catch (err) {
     console.error('Data load error:', err);
-    showLocationError('Failed to load data for this location. Check your internet connection and try again.');
+    document.getElementById('skeletonLoaders').style.display = 'none';
+    showErrorBanner('Failed to load data. Check your connection and try again.');
   } finally {
     hideLoading();
   }
 }
 
+function updateHeaderContext() {
+  const ctx = document.getElementById('headerContext');
+  let name = 'Wildfire Situational Awareness';
+  if (APP.forestData) {
+    const p = APP.forestData.properties;
+    name = p.FORESTNAME || p.forestname || name;
+    if (p._nearby) name = 'Near: ' + name;
+  } else if (APP.landData) {
+    name = APP.landData.unitName || APP.landData.agencyName;
+  } else if (APP.tribalData) {
+    name = APP.tribalData.name;
+  }
+  ctx.textContent = name;
+}
+
 // ============================================================
 // MANUAL LOCATION ENTRY
 // ============================================================
-function toggleManualPanel() {
-  const panel = document.getElementById('manualLocPanel');
-  panel.classList.toggle('visible');
+function toggleLocPanel() {
+  document.getElementById('locPanel').classList.toggle('visible');
 }
 
 function useManualCoords() {
-  const latStr = document.getElementById('manualLat').value.trim();
-  const lonStr = document.getElementById('manualLon').value.trim();
-
-  const lat = parseFloat(latStr);
-  const lon = parseFloat(lonStr);
-
-  if (isNaN(lat) || isNaN(lon)) {
-    showLocationError('Enter valid numbers for latitude and longitude.');
-    return;
-  }
-  if (lat < 17 || lat > 72 || lon < -180 || lon > -64) {
-    showLocationError('Coordinates appear to be outside the US. Latitude: 17-72, Longitude: -180 to -64.');
-    return;
-  }
-
+  const lat = parseFloat(document.getElementById('manualLat').value.trim());
+  const lon = parseFloat(document.getElementById('manualLon').value.trim());
+  if (isNaN(lat) || isNaN(lon)) { showLocationError('Enter valid numbers for latitude and longitude.'); return; }
+  if (lat < 17 || lat > 72 || lon < -180 || lon > -64) { showLocationError('Coordinates appear outside the US. Lat: 17-72, Lon: -180 to -64.'); return; }
   clearLocationError();
   loadLocationData(lat, lon);
 }
 
-function useSelectedForest() {
-  const sel = document.getElementById('forestSelect');
-  if (!sel.value) return;
-  const parts = sel.value.split(',');
-  const lat = parseFloat(parts[0]);
-  const lon = parseFloat(parts[1]);
-  clearLocationError();
-  loadLocationData(lat, lon);
-}
-
-// Map click to set location
 function enableMapClick() {
   if (!APP.mapAvailable) return;
   APP.map.on('click', function(e) {
-    const lat = e.latlng.lat;
-    const lon = e.latlng.lng;
-    // Only trigger if within rough US bounds
-    if (lat > 17 && lat < 72 && lon > -180 && lon < -64) {
-      loadLocationData(lat, lon);
+    if (e.latlng.lat > 17 && e.latlng.lat < 72 && e.latlng.lng > -180 && e.latlng.lng < -64) {
+      loadLocationData(e.latlng.lat, e.latlng.lng);
     }
   });
 }
 
+// ============================================================
+// ERROR & LOADING UI
+// ============================================================
 function showLocationError(msg) {
-  const el = document.getElementById('locErrorMsg');
+  const el = document.getElementById('locError');
   el.textContent = msg;
   el.classList.add('visible');
-  // Also show the manual panel if not visible
-  document.getElementById('manualLocPanel').classList.add('visible');
+  document.getElementById('locPanel').classList.add('visible');
 }
-
 function clearLocationError() {
-  const el = document.getElementById('locErrorMsg');
+  const el = document.getElementById('locError');
   el.textContent = '';
   el.classList.remove('visible');
+}
+function showLoading(text) {
+  document.getElementById('loadingText').textContent = text;
+  document.getElementById('loadingOverlay').classList.add('visible');
+}
+function hideLoading() {
+  document.getElementById('loadingOverlay').classList.remove('visible');
+}
+function showErrorBanner(msg) {
+  const el = document.getElementById('errorBanner');
+  document.getElementById('errorText').textContent = msg;
+  el.classList.add('visible');
+}
+function hideErrorBanner() {
+  document.getElementById('errorBanner').classList.remove('visible');
 }
 
 // ============================================================
 // LAND BOUNDARY QUERIES (USFS + BLM SMA)
 // ============================================================
 async function fetchForestData() {
-  // Query USFS for National Forest boundaries
-  // Uses ArcGIS Online mirror as primary, with USFS direct as fallback
-  const geom = JSON.stringify({
-    x: APP.userLon,
-    y: APP.userLat,
-    spatialReference: { wkid: 4326 }
-  });
-
+  const geom = JSON.stringify({ x: APP.userLon, y: APP.userLat, spatialReference: { wkid: 4326 } });
   const params = new URLSearchParams({
-    geometry: geom,
-    geometryType: 'esriGeometryPoint',
-    spatialRel: 'esriSpatialRelIntersects',
+    geometry: geom, geometryType: 'esriGeometryPoint', spatialRel: 'esriSpatialRelIntersects',
     outFields: 'FORESTNAME,FORESTNUMB,FORESTNUMBER,GIS_ACRES,REGION',
-    returnGeometry: 'true',
-    outSR: '4326',
-    maxAllowableOffset: '0.005',
-    inSR: '4326',
-    f: 'geojson'
+    returnGeometry: 'true', outSR: '4326', maxAllowableOffset: '0.005', inSR: '4326', f: 'geojson'
   });
-
-  // Try primary endpoint, then fallback
   const endpoints = [APP.USFS_URL, APP.USFS_FALLBACK_URL];
-
   for (const endpoint of endpoints) {
     try {
       const resp = await fetch(`${endpoint}?${params}`);
-      if (!resp.ok) {
-        console.warn(`USFS endpoint returned ${resp.status}: ${endpoint}`);
-        continue;
-      }
+      if (!resp.ok) continue;
       const data = await resp.json();
-
       if (data.features && data.features.length > 0) {
         const feature = data.features[0];
-        // Normalize field names across endpoints (FORESTNUMB vs FORESTNUMBER)
         const p = feature.properties;
         if (p.FORESTNUMB && !p.FORESTNUMBER) p.FORESTNUMBER = p.FORESTNUMB;
         if (p.FORESTNUMBER && !p.FORESTNUMB) p.FORESTNUMB = p.FORESTNUMBER;
-
         APP.forestData = feature;
         APP.landData = null;
         drawForestBoundary(feature);
-        return; // Success - stop trying endpoints
+        return;
       }
-    } catch (err) {
-      console.warn(`USFS endpoint failed: ${endpoint}`, err.message || err);
-      continue;
-    }
+    } catch (err) { continue; }
   }
-
-  // Neither endpoint returned a forest - try BLM/State/other federal lands
   APP.forestData = null;
   await fetchSMALandData();
-  if (!APP.landData) {
-    await findNearestForest();
-  }
+  if (!APP.landData) await findNearestForest();
 }
 
-// BLM Surface Management Agency -- covers BLM, NPS, State, Local, BIA, etc.
 async function fetchSMALandData() {
   try {
-    const geomJson = encodeURIComponent(JSON.stringify({
-      x: APP.userLon,
-      y: APP.userLat,
-      spatialReference: { wkid: 4326 }
-    }));
-
-    const url = `${APP.SMA_URL}?geometry=${geomJson}`
-      + `&geometryType=esriGeometryPoint`
-      + `&spatialRel=esriSpatialRelIntersects`
-      + `&outFields=ADMIN_UNIT_NAME,ADMIN_AGENCY_CODE,ADMIN_DEPT_CODE,ADMIN_UNIT_TYPE,SHAPE_Area,ADMIN_ST`
-      + `&returnGeometry=false`
-      + `&inSR=4326`
-      + `&f=json`;
-
+    const geomJson = encodeURIComponent(JSON.stringify({ x: APP.userLon, y: APP.userLat, spatialReference: { wkid: 4326 } }));
+    const url = `${APP.SMA_URL}?geometry=${geomJson}&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&outFields=ADMIN_UNIT_NAME,ADMIN_AGENCY_CODE,ADMIN_DEPT_CODE,ADMIN_UNIT_TYPE,SHAPE_Area,ADMIN_ST&returnGeometry=false&inSR=4326&f=json`;
     const resp = await fetchWithRetry(url);
-    if (!resp.ok) {
-      console.warn(`SMA query returned ${resp.status}`);
-      APP.landData = null;
-      return;
-    }
+    if (!resp.ok) { APP.landData = null; return; }
     const data = await resp.json();
-
     if (data.features && data.features.length > 0) {
       const attrs = data.features[0].attributes;
       const agencyCode = attrs.ADMIN_AGENCY_CODE || 'UND';
-
-      // Skip private/undetermined -- not useful to display
-      if (agencyCode === 'PVT' || agencyCode === 'UND') {
-        APP.landData = null;
-        return;
-      }
-
+      if (agencyCode === 'PVT' || agencyCode === 'UND') { APP.landData = null; return; }
       APP.landData = {
-        agencyCode: agencyCode,
-        agencyName: APP.AGENCY_NAMES[agencyCode] || agencyCode,
-        unitName: attrs.ADMIN_UNIT_NAME || null,
-        unitType: attrs.ADMIN_UNIT_TYPE || null,
-        state: attrs.ADMIN_ST || null,
-        acres: attrs.SHAPE_Area ? Math.round(attrs.SHAPE_Area * 0.000247105) : null
+        agencyCode, agencyName: APP.AGENCY_NAMES[agencyCode] || agencyCode,
+        unitName: attrs.ADMIN_UNIT_NAME || null, unitType: attrs.ADMIN_UNIT_TYPE || null,
+        state: attrs.ADMIN_ST || null, acres: attrs.SHAPE_Area ? Math.round(attrs.SHAPE_Area * 0.000247105) : null
       };
-    } else {
-      APP.landData = null;
-    }
-  } catch (err) {
-    console.error('SMA land query error:', err);
-    APP.landData = null;
-  }
+    } else { APP.landData = null; }
+  } catch (err) { APP.landData = null; APP.errors.push('BLM/SMA data unavailable'); }
 }
 
 async function findNearestForest() {
   const geom = JSON.stringify({
-    xmin: APP.userLon - 1,
-    ymin: APP.userLat - 1,
-    xmax: APP.userLon + 1,
-    ymax: APP.userLat + 1,
+    xmin: APP.userLon - 1, ymin: APP.userLat - 1, xmax: APP.userLon + 1, ymax: APP.userLat + 1,
     spatialReference: { wkid: 4326 }
   });
-
   const params = new URLSearchParams({
-    geometry: geom,
-    geometryType: 'esriGeometryEnvelope',
-    spatialRel: 'esriSpatialRelIntersects',
+    geometry: geom, geometryType: 'esriGeometryEnvelope', spatialRel: 'esriSpatialRelIntersects',
     outFields: 'FORESTNAME,FORESTNUMB,FORESTNUMBER,GIS_ACRES,REGION',
-    returnGeometry: 'true',
-    outSR: '4326',
-    maxAllowableOffset: '0.005',
-    inSR: '4326',
-    f: 'geojson',
-    resultRecordCount: '5'
+    returnGeometry: 'true', outSR: '4326', maxAllowableOffset: '0.005', inSR: '4326', f: 'geojson', resultRecordCount: '5'
   });
-
   const endpoints = [APP.USFS_URL, APP.USFS_FALLBACK_URL];
   for (const endpoint of endpoints) {
     try {
@@ -1648,34 +1949,21 @@ async function findNearestForest() {
       const data = await resp.json();
       if (data.features && data.features.length > 0) {
         APP.forestData = data.features[0];
-        // Normalize field names
         const p = APP.forestData.properties;
         if (p.FORESTNUMB && !p.FORESTNUMBER) p.FORESTNUMBER = p.FORESTNUMB;
         APP.forestData.properties._nearby = true;
         return;
       }
-    } catch (err) {
-      console.warn('Nearest forest query failed:', endpoint, err.message || err);
-    }
+    } catch (err) { continue; }
   }
 }
 
 function drawForestBoundary(feature) {
   if (!APP.mapAvailable) return;
-
   if (APP.forestLayer) APP.map.removeLayer(APP.forestLayer);
-
   APP.forestLayer = L.geoJSON(feature, {
-    style: {
-      color: '#2E5E3E',
-      weight: 2.5,
-      fillColor: '#2E5E3E',
-      fillOpacity: 0.08,
-      dashArray: '6 3'
-    }
+    style: { color: '#2E5E3E', weight: 2.5, fillColor: '#2E5E3E', fillOpacity: 0.08, dashArray: '6 3' }
   }).addTo(APP.map);
-
-  // Fit map to show both user and forest
   const bounds = APP.forestLayer.getBounds();
   if (APP.userMarker) bounds.extend(APP.userMarker.getLatLng());
   APP.map.fitBounds(bounds, { padding: [30, 30] });
@@ -1686,76 +1974,37 @@ function drawForestBoundary(feature) {
 // ============================================================
 async function fetchTribalData() {
   try {
-    // Query both federal (layer 36) and state (layer 40) reservations in parallel
-    const baseParams = `geometry=${APP.userLon},${APP.userLat}`
-      + `&geometryType=esriGeometryPoint`
-      + `&spatialRel=esriSpatialRelIntersects`
-      + `&inSR=4326&outSR=4326`
-      + `&outFields=NAME,BASENAME,GEOID,AREALAND`
-      + `&returnGeometry=true`
-      + `&maxAllowableOffset=0.005`
-      + `&f=geojson`;
-
+    const baseParams = `geometry=${APP.userLon},${APP.userLat}&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&inSR=4326&outSR=4326&outFields=NAME,BASENAME,GEOID,AREALAND&returnGeometry=true&maxAllowableOffset=0.005&f=geojson`;
     const [fedResp, stResp] = await Promise.all([
       fetchWithRetry(`${APP.TRIBAL_URL}/36/query?${baseParams}`),
       fetchWithRetry(`${APP.TRIBAL_URL}/40/query?${baseParams}`)
     ]);
-
-    let tribalFeature = null;
-    let tribalSource = null;
-
+    let tribalFeature = null, tribalSource = null;
     if (fedResp.ok) {
-      const fedData = await fedResp.json();
-      if (fedData.features && fedData.features.length > 0) {
-        tribalFeature = fedData.features[0];
-        tribalSource = 'federal';
-      }
+      const d = await fedResp.json();
+      if (d.features && d.features.length > 0) { tribalFeature = d.features[0]; tribalSource = 'federal'; }
     }
-
-    // State reservation as fallback
     if (!tribalFeature && stResp.ok) {
-      const stData = await stResp.json();
-      if (stData.features && stData.features.length > 0) {
-        tribalFeature = stData.features[0];
-        tribalSource = 'state';
-      }
+      const d = await stResp.json();
+      if (d.features && d.features.length > 0) { tribalFeature = d.features[0]; tribalSource = 'state'; }
     }
-
     if (tribalFeature) {
       const p = tribalFeature.properties;
       APP.tribalData = {
-        name: p.NAME || p.BASENAME || 'Unknown',
-        basename: p.BASENAME || '',
-        geoid: p.GEOID || '',
-        acres: p.AREALAND ? Math.round(p.AREALAND * 0.000247105) : null,
-        source: tribalSource
+        name: p.NAME || p.BASENAME || 'Unknown', basename: p.BASENAME || '', geoid: p.GEOID || '',
+        acres: p.AREALAND ? Math.round(p.AREALAND * 0.000247105) : null, source: tribalSource
       };
       drawTribalBoundary(tribalFeature);
-    } else {
-      APP.tribalData = null;
-    }
-  } catch (err) {
-    console.error('Tribal data fetch error:', err);
-    APP.tribalData = null;
-  }
+    } else { APP.tribalData = null; }
+  } catch (err) { APP.tribalData = null; APP.errors.push('Tribal boundary data unavailable'); }
 }
 
 function drawTribalBoundary(feature) {
   if (!APP.mapAvailable) return;
-
   if (APP.tribalLayer) APP.map.removeLayer(APP.tribalLayer);
-
   APP.tribalLayer = L.geoJSON(feature, {
-    style: {
-      color: '#D4702A',
-      weight: 2.5,
-      fillColor: '#D4702A',
-      fillOpacity: 0.06,
-      dashArray: '8 4 2 4'
-    }
+    style: { color: '#D4702A', weight: 2.5, fillColor: '#D4702A', fillOpacity: 0.06, dashArray: '8 4 2 4' }
   }).addTo(APP.map);
-
-  // Extend existing bounds to include tribal boundary
   const bounds = APP.tribalLayer.getBounds();
   if (APP.forestLayer) bounds.extend(APP.forestLayer.getBounds());
   if (APP.userMarker) bounds.extend(APP.userMarker.getLatLng());
@@ -1767,46 +2016,35 @@ function drawTribalBoundary(feature) {
 // ============================================================
 async function fetchWeatherData() {
   try {
-    // Step 1: Get grid info from point
-    const pointResp = await fetch(
-      `https://api.weather.gov/points/${APP.userLat.toFixed(4)},${APP.userLon.toFixed(4)}`
-    );
+    const pointResp = await fetch(`https://api.weather.gov/points/${APP.userLat.toFixed(4)},${APP.userLon.toFixed(4)}`);
     if (!pointResp.ok) throw new Error(`Points API returned ${pointResp.status}`);
     const pointData = await pointResp.json();
     const props = pointData.properties;
-
     APP.weatherMeta = {
-      gridId: props.gridId,
-      gridX: props.gridX,
-      gridY: props.gridY,
+      gridId: props.gridId, gridX: props.gridX, gridY: props.gridY,
       fireZone: props.fireWeatherZone ? props.fireWeatherZone.split('/').pop() : '--',
       timeZone: props.timeZone,
       city: props.relativeLocation?.properties?.city || '--',
       state: props.relativeLocation?.properties?.state || '--'
     };
-
-    // Step 2: Get forecast (with retry - weather.gov sometimes 500s)
-    // Validate all API-returned URLs to prevent open redirect/SSRF
     const trustedPrefix = 'https://api.weather.gov/';
     if (props.forecast && props.forecast.startsWith(trustedPrefix)) {
-      const fcstResp = await fetchWithRetry(props.forecast);
-      if (fcstResp.ok) APP.forecastData = await fcstResp.json();
+      const r = await fetchWithRetry(props.forecast);
+      if (r.ok) APP.forecastData = await r.json();
     }
-
-    // Step 3: Get hourly forecast
     if (props.forecastHourly && props.forecastHourly.startsWith(trustedPrefix)) {
-      const hourlyResp = await fetchWithRetry(props.forecastHourly);
-      if (hourlyResp.ok) APP.hourlyData = await hourlyResp.json();
+      const r = await fetchWithRetry(props.forecastHourly);
+      if (r.ok) APP.hourlyData = await r.json();
+      else APP.errors.push('Hourly forecast unavailable');
     }
-
-    // Step 4: Get raw gridpoint data (RH, wind, dewpoint, etc.)
     if (props.forecastGridData && props.forecastGridData.startsWith(trustedPrefix)) {
-      const gridResp = await fetchWithRetry(props.forecastGridData);
-      if (gridResp.ok) APP.gridData = await gridResp.json();
+      const r = await fetchWithRetry(props.forecastGridData);
+      if (r.ok) APP.gridData = await r.json();
+      else APP.errors.push('Gridpoint data unavailable');
     }
-
   } catch (err) {
     console.error('Weather fetch error:', err);
+    APP.errors.push('Weather data failed to load');
   }
 }
 
@@ -1815,7 +2053,6 @@ async function fetchWithRetry(url, retries = 2) {
     try {
       const resp = await fetch(url);
       if (resp.ok || i === retries) return resp;
-      // weather.gov returns 500 intermittently; wait and retry
       await new Promise(r => setTimeout(r, 1000 * (i + 1)));
     } catch (err) {
       if (i === retries) throw err;
@@ -1826,108 +2063,54 @@ async function fetchWithRetry(url, retries = 2) {
 
 async function fetchAlerts() {
   try {
-    const resp = await fetch(
-      `https://api.weather.gov/alerts/active?point=${APP.userLat.toFixed(4)},${APP.userLon.toFixed(4)}&status=actual`
-    );
-    if (!resp.ok) {
-      console.warn(`Alerts API returned ${resp.status}`);
-      APP.alertsData = [];
-      return;
-    }
+    const resp = await fetch(`https://api.weather.gov/alerts/active?point=${APP.userLat.toFixed(4)},${APP.userLon.toFixed(4)}&status=actual`);
+    if (!resp.ok) { APP.alertsData = []; APP.errors.push('Alert data unavailable'); return; }
     const data = await resp.json();
     APP.alertsData = data.features || [];
-  } catch (err) {
-    console.error('Alerts fetch error:', err);
-    APP.alertsData = [];
-  }
+  } catch (err) { APP.alertsData = []; }
 }
 
 // ============================================================
 // NWCG PREDICTIVE SERVICES - 7-DAY FIRE POTENTIAL
 // ============================================================
 async function fetchFirePotential() {
-  // Dryness code long descriptions (used in tooltips)
-  const codeLongDesc = {
-    0: 'No Data', 1: 'Little/No Risk', 2: 'Low Risk (Dry)',
-    3: 'Moderate Risk (Very Dry)', 4: 'Lightning Activity Expected',
-    5: 'Wind Warning', 11: 'Burn Environment'
-  };
-
+  const codeLongDesc = { 0:'No Data',1:'Little/No Risk',2:'Low Risk (Dry)',3:'Moderate Risk (Very Dry)',4:'Lightning Activity Expected',5:'Wind Warning',11:'Burn Environment' };
   try {
-    // 1) Fetch PSA metadata (boundaries layer - static, always accurate)
-    const psaUrl = `https://fsapps.nwcg.gov/psp/arcgis/rest/services/npsg/PSA_GACC_KeyRAWS/MapServer/1/query`
-      + `?geometry=${APP.userLon},${APP.userLat}`
-      + `&geometryType=esriGeometryPoint`
-      + `&spatialRel=esriSpatialRelIntersects`
-      + `&outFields=PSA_NAME,NAT_CODE,GACC_Label,Unit_ID`
-      + `&returnGeometry=false&f=json`;
-
-    // 2) Fetch 7-day forecast from outlooks_forecast (layers 0-6 = Day 1-7)
+    const psaUrl = `https://fsapps.nwcg.gov/psp/arcgis/rest/services/npsg/PSA_GACC_KeyRAWS/MapServer/1/query?geometry=${APP.userLon},${APP.userLat}&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&outFields=PSA_NAME,NAT_CODE,GACC_Label,Unit_ID&returnGeometry=false&f=json`;
     const forecastBase = 'https://fsapps.nwcg.gov/psp/arcgis/rest/services/npsg/outlooks_forecast/MapServer';
     const dayUrls = [];
     for (let i = 0; i < 7; i++) {
-      dayUrls.push(
-        `${forecastBase}/${i}/query`
-        + `?geometry=${APP.userLon},${APP.userLat}`
-        + `&geometryType=esriGeometryPoint`
-        + `&spatialRel=esriSpatialRelIntersects`
-        + `&outFields=drynesscode,timestampdate,nat_code,gacc_name`
-        + `&returnGeometry=false&f=json`
-      );
+      dayUrls.push(`${forecastBase}/${i}/query?geometry=${APP.userLon},${APP.userLat}&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&outFields=drynesscode,timestampdate,nat_code,gacc_name&returnGeometry=false&f=json`);
     }
-
-    // Fire all 8 requests in parallel
-    const [psaResp, ...dayResps] = await Promise.all([
-      fetchWithRetry(psaUrl),
-      ...dayUrls.map(u => fetchWithRetry(u))
-    ]);
-
-    // Parse PSA metadata
+    const [psaResp, ...dayResps] = await Promise.all([fetchWithRetry(psaUrl), ...dayUrls.map(u => fetchWithRetry(u))]);
     let psaMeta = {};
     if (psaResp.ok) {
-      const psaData = await psaResp.json();
-      if (psaData.features && psaData.features.length > 0) {
-        psaMeta = psaData.features[0].attributes;
-      }
+      const d = await psaResp.json();
+      if (d.features && d.features.length > 0) psaMeta = d.features[0].attributes;
     }
-
-    // Parse each day's forecast
-    const dayResults = await Promise.all(dayResps.map(async (r) => {
+    const dayResults = await Promise.all(dayResps.map(async r => {
       if (!r.ok) return null;
       const d = await r.json();
       return (d.features && d.features.length > 0) ? d.features[0].attributes : null;
     }));
-
-    // Check we got at least one valid day
-    if (dayResults.every(d => d === null)) {
-      console.warn('NWCG outlooks_forecast returned no data for any day');
-      APP.firePotentialData = null;
-      return;
-    }
-
-    // Build a unified object that matches the shape renderFirePotential expects
+    if (dayResults.every(d => d === null)) { APP.firePotentialData = null; return; }
     const fp = {
-      PSA_NAME:   psaMeta.PSA_NAME   || '',
-      NAT_CODE:   psaMeta.NAT_CODE   || (dayResults[0] && dayResults[0].nat_code) || '',
-      GACC_Label: psaMeta.GACC_Label || '',
-      gacc:       (dayResults[0] && dayResults[0].gacc_name) || '',
-      Unit_ID:    psaMeta.Unit_ID    || '',
-      DATE:       dayResults[0] ? dayResults[0].timestampdate : Date.now()
+      PSA_NAME: psaMeta.PSA_NAME || '', NAT_CODE: psaMeta.NAT_CODE || (dayResults[0]?.nat_code) || '',
+      GACC_Label: psaMeta.GACC_Label || '', gacc: dayResults[0]?.gacc_name || '',
+      Unit_ID: psaMeta.Unit_ID || '', DATE: dayResults[0] ? dayResults[0].timestampdate : Date.now()
     };
-
     for (let i = 0; i < 7; i++) {
       const day = dayResults[i];
       const code = day ? day.drynesscode : 0;
-      fp[`D${i + 1}`] = code;
-      fp[`D${i + 1}_LONG`] = codeLongDesc[code] || 'Unknown';
-      fp[`D${i + 1}_DATE`] = day ? day.timestampdate : null;
+      fp[`D${i+1}`] = code;
+      fp[`D${i+1}_LONG`] = codeLongDesc[code] || 'Unknown';
+      fp[`D${i+1}_DATE`] = day ? day.timestampdate : null;
     }
-
     APP.firePotentialData = fp;
-
   } catch (err) {
     console.error('NWCG fire potential fetch error:', err);
     APP.firePotentialData = null;
+    APP.errors.push('Fire potential data unavailable');
   }
 }
 
@@ -1937,8 +2120,7 @@ async function fetchFirePotential() {
 function renderAll() {
   renderForestBanner();
   renderRedFlagAlerts();
-  renderCurrentConditions();
-  renderPAL();
+  renderHeroCard();
   renderFirePotential();
   renderHumidityRecovery();
   renderForecast();
@@ -1949,315 +2131,198 @@ function renderAll() {
 // -- FOREST/LAND BANNER --
 function renderForestBanner() {
   const banner = document.getElementById('forestBanner');
-
-  // USFS National Forest -- primary display
   if (APP.forestData) {
     const p = APP.forestData.properties;
     const name = p.FORESTNAME || p.forestname || 'Unknown Forest';
     const region = p.REGION || p.region || '--';
     const acres = p.GIS_ACRES || p.gis_acres;
     const gacc = APP.REGION_GACC[region] || '--';
-
-    document.getElementById('forestName').textContent =
-      (p._nearby ? 'Near: ' : '') + name;
-    document.getElementById('forestRegion').textContent =
-      APP.REGION_NAMES[region] || `Region ${region}`;
-    document.getElementById('forestAcres').textContent =
-      acres ? `${Math.round(acres).toLocaleString()} acres` : '-- acres';
+    document.getElementById('forestName').textContent = (p._nearby ? 'Near: ' : '') + name;
+    document.getElementById('forestRegion').textContent = APP.REGION_NAMES[region] || `Region ${region}`;
+    document.getElementById('forestAcres').textContent = acres ? `${Math.round(acres).toLocaleString()} acres` : '-- acres';
     document.getElementById('forestGACC').textContent = `GACC: ${gacc}`;
     banner.classList.add('visible');
     renderTribalBanner();
     return;
   }
-
-  // BLM / State / Other federal land from SMA
   if (APP.landData) {
-    const ld = APP.landData;
-    const displayName = ld.unitName || ld.agencyName;
-    document.getElementById('forestName').textContent = displayName;
-    document.getElementById('forestRegion').textContent = ld.agencyName;
-    document.getElementById('forestAcres').textContent =
-      ld.acres ? `${ld.acres.toLocaleString()} acres` : '-- acres';
-    document.getElementById('forestGACC').textContent =
-      ld.state ? `State: ${ld.state}` : '--';
+    document.getElementById('forestName').textContent = APP.landData.unitName || APP.landData.agencyName;
+    document.getElementById('forestRegion').textContent = APP.landData.agencyName;
+    document.getElementById('forestAcres').textContent = APP.landData.acres ? `${APP.landData.acres.toLocaleString()} acres` : '-- acres';
+    document.getElementById('forestGACC').textContent = APP.landData.state ? `State: ${APP.landData.state}` : '--';
     banner.classList.add('visible');
     renderTribalBanner();
     return;
   }
-
-  // No forest or land data, but might still be on tribal land
   if (APP.tribalData) {
     document.getElementById('forestName').textContent = APP.tribalData.name;
     document.getElementById('forestRegion').textContent = 'Tribal Territory';
-    document.getElementById('forestAcres').textContent =
-      APP.tribalData.acres ? `${APP.tribalData.acres.toLocaleString()} acres` : '-- acres';
+    document.getElementById('forestAcres').textContent = APP.tribalData.acres ? `${APP.tribalData.acres.toLocaleString()} acres` : '-- acres';
     document.getElementById('forestGACC').textContent = '';
     banner.classList.add('visible');
     return;
   }
-
   banner.classList.remove('visible');
 }
 
 function renderTribalBanner() {
   const el = document.getElementById('tribalBanner');
-  if (!APP.tribalData) {
-    el.style.display = 'none';
-    return;
-  }
+  if (!APP.tribalData) { el.classList.remove('visible'); return; }
   document.getElementById('tribalName').textContent = APP.tribalData.name;
-  document.getElementById('tribalAcres').textContent =
-    APP.tribalData.acres ? `${APP.tribalData.acres.toLocaleString()} acres` : '';
-  el.style.display = 'block';
+  document.getElementById('tribalAcres').textContent = APP.tribalData.acres ? `${APP.tribalData.acres.toLocaleString()} acres` : '';
+  el.classList.add('visible');
 }
 
 // -- RED FLAG ALERTS --
 function renderRedFlagAlerts() {
-  const el = document.getElementById('redFlagAlert');
+  const el = document.getElementById('alertBar');
   const rfws = (APP.alertsData || []).filter(a =>
-    a.properties.event && (
-      a.properties.event.toLowerCase().includes('red flag') ||
-      a.properties.event.toLowerCase().includes('fire weather')
-    )
+    a.properties.event && (a.properties.event.toLowerCase().includes('red flag') || a.properties.event.toLowerCase().includes('fire weather'))
   );
-
   if (rfws.length > 0) {
     const alert = rfws[0].properties;
-    document.getElementById('redFlagText').textContent = alert.event.toUpperCase();
-    document.getElementById('redFlagDetail').textContent =
-      alert.headline || `Until ${new Date(alert.expires).toLocaleString()}`;
+    document.getElementById('alertText').textContent = alert.event.toUpperCase();
+    document.getElementById('alertDetail').textContent = alert.headline || `Until ${new Date(alert.expires).toLocaleString()}`;
     el.classList.add('visible');
   } else {
     el.classList.remove('visible');
   }
-
-  // Also check for any fire-related alerts
-  const fireAlerts = (APP.alertsData || []).filter(a =>
-    a.properties.event && a.properties.event.toLowerCase().includes('fire')
-  );
-  // Store for precautions
-  APP.fireAlerts = fireAlerts;
+  APP.fireAlerts = (APP.alertsData || []).filter(a => a.properties.event && a.properties.event.toLowerCase().includes('fire'));
 }
 
-// -- CURRENT CONDITIONS --
-function renderCurrentConditions() {
-  if (!APP.hourlyData && !APP.gridData) return;
-
+// -- HERO CARD (Current Conditions + PAL + Metrics) --
+function renderHeroCard() {
   const hourly = APP.hourlyData?.properties?.periods;
   const grid = APP.gridData?.properties;
+  const heroCard = document.getElementById('heroCard');
 
+  // Temperature & condition
   if (hourly && hourly.length > 0) {
     const now = hourly[0];
-    document.getElementById('wxTemp').textContent = `${now.temperature}\u00B0${now.temperatureUnit}`;
-    document.getElementById('wxWind').textContent = `${now.windSpeed} ${now.windDirection}`;
-    document.getElementById('wxConditions').textContent = now.shortForecast;
-    document.getElementById('weatherTime').textContent =
-      new Date(now.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    document.getElementById('heroTemp').textContent = `${now.temperature}\u00B0${now.temperatureUnit}`;
+    document.getElementById('heroCondition').textContent = `${now.shortForecast} \u00B7 ${now.windSpeed} ${now.windDirection}`;
+    document.getElementById('mWind').textContent = now.windSpeed.replace(/ mph/i, '');
+    document.getElementById('mWindDir').textContent = now.windDirection;
   }
 
-  // RH from gridpoint data
+  // RH
   const rh = grid ? getCurrentValue(grid.relativeHumidity) : null;
   if (rh !== null) {
-    document.getElementById('wxRH').textContent = `${Math.round(rh)}%`;
-    const rhEl = document.getElementById('wxRH');
-    if (rh < 15) rhEl.classList.add('danger');
-    else if (rh < 25) rhEl.classList.add('warn');
-    else rhEl.classList.add('good');
+    const mRH = document.getElementById('mRH');
+    mRH.textContent = `${Math.round(rh)}%`;
+    const mRHStatus = document.getElementById('mRHStatus');
+    if (rh < THRESHOLDS.RH_CRITICAL) { mRH.className = 'metric-value danger'; mRHStatus.textContent = 'Critical'; mRHStatus.className = 'metric-sub danger'; }
+    else if (rh < THRESHOLDS.RH_LOW) { mRH.className = 'metric-value warn'; mRHStatus.textContent = 'Low'; mRHStatus.className = 'metric-sub warn'; }
+    else { mRH.className = 'metric-value good'; mRHStatus.textContent = 'Adequate'; mRHStatus.className = 'metric-sub'; }
   }
 
-  // Fire risk for public mode
-  const riskLevel = calculateFireRisk(rh, hourly?.[0]);
-  const riskEl = document.getElementById('wxRiskPublic');
-  riskEl.textContent = riskLevel.label;
-  riskEl.className = 'data-value ' + riskLevel.class;
-
-  // Pro mode extras
+  // Dewpoint
   const dew = grid ? getCurrentValue(grid.dewpoint) : null;
   if (dew !== null) {
-    document.getElementById('wxDewpoint').textContent =
-      `${Math.round(dew * 9/5 + 32)}\u00B0F / ${Math.round(dew)}\u00B0C`;
+    document.getElementById('mDewpoint').textContent = `${Math.round(dew * 9/5 + 32)}\u00B0F`;
+    document.getElementById('mDewpointSub').textContent = `${Math.round(dew)}\u00B0C`;
   }
 
+  // Pro metrics
   const transWind = grid ? getCurrentValue(grid.transportWindSpeed) : null;
-  if (transWind !== null) {
-    document.getElementById('wxTransWind').textContent = `${Math.round(transWind * 0.621371)} mph`;
-  }
+  if (transWind !== null) document.getElementById('mTransport').textContent = `${Math.round(transWind * 0.621371)} mph`;
 
   const mixing = grid ? getCurrentValue(grid.mixingHeight) : null;
-  if (mixing !== null) {
-    document.getElementById('wxMixing').textContent = `${Math.round(mixing * 3.28084)} ft`;
-  }
+  if (mixing !== null) document.getElementById('mMixing').textContent = `${Math.round(mixing * 3.28084).toLocaleString()}'`;
 
   const haines = grid ? getCurrentValue(grid.hainesIndex) : null;
   if (haines !== null) {
-    document.getElementById('wxHaines').textContent = haines;
-    const hEl = document.getElementById('wxHaines');
-    if (haines >= 5) hEl.classList.add('danger');
-    else if (haines >= 4) hEl.classList.add('warn');
+    const mH = document.getElementById('mHaines');
+    mH.textContent = haines;
+    const mHSub = document.getElementById('mHainesSub');
+    if (haines >= THRESHOLDS.HAINES_HIGH) { mH.className = 'metric-value danger'; mHSub.textContent = 'High'; mHSub.className = 'metric-sub danger'; }
+    else if (haines >= THRESHOLDS.HAINES_MODERATE) { mH.className = 'metric-value warn'; mHSub.textContent = 'Moderate'; mHSub.className = 'metric-sub warn'; }
+    else { mH.className = 'metric-value'; mHSub.textContent = 'Low'; }
   }
 
-  document.getElementById('wxFireZone').textContent = APP.weatherMeta?.fireZone || '--';
-}
-
-// -- PAL (Project Activity Level) --
-function renderPAL() {
-  const rh = getCurrentValue(APP.gridData?.properties?.relativeHumidity);
-  const hourly = APP.hourlyData?.properties?.periods?.[0];
-  const pal = determinePAL(rh, hourly);
-
+  // PAL
+  const pal = determinePAL(rh, hourly?.[0]);
   const badge = document.getElementById('palBadge');
   badge.textContent = pal.level;
   badge.className = 'pal-badge pal-' + pal.level.toLowerCase();
-
+  document.getElementById('palBadgeLabel').style.color = `var(--pal-${pal.level.toLowerCase()})`;
   document.getElementById('palDescription').innerHTML = pal.description;
 
-  // Restrictions
-  const restrictionsHtml = pal.restrictions.map(r =>
-    `<div class="precaution">
-      <div class="precaution-icon">${r.icon}</div>
-      <div>${r.text}</div>
-    </div>`
-  ).join('');
-  document.getElementById('palRestrictions').innerHTML = restrictionsHtml;
+  // Threat level on hero card border
+  heroCard.classList.remove('threat-high', 'threat-extreme');
+  if (pal.level === 'E') heroCard.classList.add('threat-extreme');
+  else if (pal.level === 'D' || pal.level === 'C') heroCard.classList.add('threat-high');
 
-  // Pro detail
+  // Restrictions
+  document.getElementById('palRestrictions').innerHTML = pal.restrictions.map(r =>
+    `<div class="precaution-item"><div class="precaution-dot"></div><div>${r.text}</div></div>`
+  ).join('');
+
+  // Pro PAL detail
   document.getElementById('palProDetail').innerHTML = `
-    <div style="font-size:12px;color:#888;margin-bottom:8px;font-style:italic;">
-      PAL derived from weather.gov fire weather data. For official PAL, contact the local
-      National Forest dispatch or check <a href="https://fsapps.nwcg.gov" target="_blank" rel="noopener noreferrer">fsapps.nwcg.gov</a>.
-    </div>
-    <div class="data-row">
-      <span class="data-label">Calculated PAL</span>
-      <span class="data-value">${pal.level} (${pal.levelName})</span>
-    </div>
-    <div class="data-row">
-      <span class="data-label">Based On</span>
-      <span class="data-value">RH: ${rh ? Math.round(rh) + '%' : '--'}, Wind: ${hourly?.windSpeed || '--'}</span>
-    </div>
-    <div class="data-row">
-      <span class="data-label">NFDRS Adjective Rating</span>
-      <span class="data-value">${pal.nfdrsRating}</span>
-    </div>
+    <div class="pal-detail-note">PAL derived from weather.gov fire weather data. For official PAL, contact local dispatch or check <a href="https://fsapps.nwcg.gov" target="_blank" rel="noopener noreferrer" style="color:var(--orange-light);">fsapps.nwcg.gov</a>.</div>
+    <div class="data-row"><span class="data-label">Calculated PAL</span><span class="data-value">${pal.level} (${pal.levelName})</span></div>
+    <div class="data-row"><span class="data-label">Based on</span><span class="data-value">RH: ${rh ? Math.round(rh) + '%' : '--'}, Wind: ${hourly?.[0]?.windSpeed || '--'}</span></div>
+    <div class="data-row"><span class="data-label">NFDRS rating</span><span class="data-value">${pal.nfdrsRating}</span></div>
   `;
 }
 
-// -- 7-DAY FIRE POTENTIAL (NWCG Predictive Services) --
+// -- 7-DAY FIRE POTENTIAL --
 function renderFirePotential() {
-  const card = document.getElementById('firePotentialCard');
   const fp = APP.firePotentialData;
+  const barsEl = document.getElementById('fpBars');
+  const fpCard = document.getElementById('fpCard');
 
-  if (!fp) {
-    card.style.display = 'none';
-    return;
-  }
+  if (!fp) { barsEl.innerHTML = '<div style="font-size:11px;color:var(--text-muted);padding:8px;">Data unavailable</div>'; return; }
 
-  card.style.display = 'block';
-
-  // PSA info
-  const psaInfo = document.getElementById('fpPsaInfo');
-  psaInfo.innerHTML = `
-    <strong>${fp.PSA_NAME || '--'}</strong> Predictive Service Area
-    &middot; <strong>${fp.GACC_Label || fp.gacc || '--'}</strong> GACC
-    &middot; PSA Code: ${fp.NAT_CODE || '--'}
-  `;
-
-  // Dryness code mapping
-  // NWCG Predictive Services dryness/trigger codes
   const drynessMap = {
-    0:  { label: 'No Data',          short: 'No Data',   css: 'fp-nodata' },
-    1:  { label: 'Little/No Risk',   short: 'Moist',     css: 'fp-moist' },
-    2:  { label: 'Low Risk',         short: 'Dry',       css: 'fp-dry' },
-    3:  { label: 'Moderate Risk',    short: 'Very Dry',  css: 'fp-very-dry' },
-    4:  { label: 'Lightning',        short: 'Lightning', css: 'fp-lightning' },
-    5:  { label: 'Wind Warning',     short: 'Wind',      css: 'fp-wind' },
-    11: { label: 'Burn Environment', short: 'Burn',      css: 'fp-burn' }
+    0:{label:'No Data',short:'--',css:'fp-nodata',height:15},
+    1:{label:'Moist',short:'Low',css:'fp-low',height:25},
+    2:{label:'Dry',short:'Low',css:'fp-low',height:30},
+    3:{label:'Very Dry',short:'Mod',css:'fp-mod',height:45},
+    4:{label:'Lightning',short:'Ltng',css:'fp-lightning',height:55},
+    5:{label:'Wind',short:'Wind',css:'fp-wind',height:55},
+    11:{label:'Burn',short:'Burn',css:'fp-burn',height:55}
   };
-
-  // Build the 7-day strip using actual forecast dates from NWCG
-  const strip = document.getElementById('fpStrip');
-  strip.innerHTML = '';
-
   const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const todayStr = new Date().toDateString();
 
+  barsEl.innerHTML = '';
   for (let i = 1; i <= 7; i++) {
     const code = fp[`D${i}`];
-    const longDesc = fp[`D${i}_LONG`] || '';
-    const info = drynessMap[code] || { label: 'Unknown', short: '?', css: 'fp-nodata' };
-
-    // Use actual forecast timestamp from NWCG endpoint
+    const info = drynessMap[code] || drynessMap[0];
     const ts = fp[`D${i}_DATE`];
     let dayLabel;
-    let dateStr = '';
     if (ts) {
-      const dayDate = new Date(ts);
-      dateStr = dayDate.toLocaleDateString();
-      dayLabel = (dayDate.toDateString() === todayStr) ? 'Today' : dayNames[dayDate.getDay()];
-    } else {
-      dayLabel = `Day ${i}`;
-    }
+      const d = new Date(ts);
+      dayLabel = (d.toDateString() === todayStr) ? 'Today' : dayNames[d.getDay()];
+    } else { dayLabel = `D${i}`; }
 
-    const el = document.createElement('div');
-    el.className = `fp-day ${info.css}`;
-    el.innerHTML = `
-      <div class="fp-label">${dayLabel}</div>
-      <div class="fp-code">${info.short}</div>
-      <div class="fp-desc">${info.label}</div>
-    `;
-    el.title = `${dateStr ? dateStr + ': ' : ''}${longDesc || info.label} (Code ${code})`;
-    strip.appendChild(el);
+    const col = document.createElement('div');
+    col.className = 'fp-bar-col';
+    col.innerHTML = `<div class="fp-bar-level" style="color:${info.css === 'fp-nodata' ? 'var(--text-dim)' : 'var(--cream)'}">${info.short}</div><div class="fp-bar ${info.css}" style="height:${info.height}px;"></div><div class="fp-bar-day">${dayLabel}</div>`;
+    col.title = `${fp[`D${i}_LONG`] || info.label} (Code ${code})`;
+    barsEl.appendChild(col);
   }
 
-  // Pro mode detail
+  // Pro detail
   const proDetail = document.getElementById('fpProDetail');
-  // Show actual forecast date range from NWCG timestamps
   let forecastDate = '--';
   if (fp.D1_DATE) {
-    const startDate = new Date(fp.D1_DATE).toLocaleDateString();
-    const endTs = fp.D7_DATE || fp.D6_DATE || fp.D5_DATE;
-    if (endTs) {
-      forecastDate = `${startDate} \u2013 ${new Date(endTs).toLocaleDateString()}`;
-    } else {
-      forecastDate = startDate;
-    }
+    const s = new Date(fp.D1_DATE).toLocaleDateString();
+    const endTs = fp.D7_DATE || fp.D6_DATE;
+    forecastDate = endTs ? `${s} \u2013 ${new Date(endTs).toLocaleDateString()}` : s;
   }
-
-  // Find worst day by severity (not raw code number)
-  const severityRank = { 0: 0, 1: 1, 2: 2, 3: 3, 5: 4, 4: 5, 11: 5 };
-  let worstCode = 0;
-  let worstSeverity = 0;
-  for (let i = 1; i <= 7; i++) {
-    const code = fp[`D${i}`];
-    const sev = severityRank[code] !== undefined ? severityRank[code] : 3;
-    if (sev > worstSeverity) { worstSeverity = sev; worstCode = code; }
-  }
-  const worstInfo = drynessMap[worstCode] || { label: 'Unknown' };
-
+  const severityRank = {0:0,1:1,2:2,3:3,5:4,4:5,11:5};
+  let worstCode=0, worstSev=0;
+  for (let i=1;i<=7;i++) { const c=fp[`D${i}`]; const s=severityRank[c]!==undefined?severityRank[c]:3; if(s>worstSev){worstSev=s;worstCode=c;} }
+  const worstInfo = drynessMap[worstCode] || drynessMap[0];
   proDetail.innerHTML = `
-    <div class="data-row">
-      <span class="data-label">PSA Unit ID</span>
-      <span class="data-value">${fp.Unit_ID || '--'}</span>
-    </div>
-    <div class="data-row">
-      <span class="data-label">NAT Code</span>
-      <span class="data-value">${fp.NAT_CODE || '--'}</span>
-    </div>
-    <div class="data-row">
-      <span class="data-label">GACC</span>
-      <span class="data-value">${fp.GACC_Label || fp.gacc || '--'}</span>
-    </div>
-    <div class="data-row">
-      <span class="data-label">Forecast Date</span>
-      <span class="data-value">${forecastDate}</span>
-    </div>
-    <div class="data-row">
-      <span class="data-label">Peak Severity (7-day)</span>
-      <span class="data-value">${worstInfo.label} (Code ${worstCode})</span>
-    </div>
-    <div style="font-size:11px;color:#888;margin-top:8px;font-style:italic;">
-      Source: NWCG National Predictive Services &middot;
-      <a href="https://fsapps.nwcg.gov/psp/npsg/forecast/#/outlooks" target="_blank" rel="noopener noreferrer" style="color:#A85318;">View full outlook</a>
-    </div>
+    <div class="data-row"><span class="data-label">PSA</span><span class="data-value">${fp.PSA_NAME || '--'}</span></div>
+    <div class="data-row"><span class="data-label">GACC</span><span class="data-value">${fp.GACC_Label || fp.gacc || '--'}</span></div>
+    <div class="data-row"><span class="data-label">Forecast</span><span class="data-value">${forecastDate}</span></div>
+    <div class="data-row"><span class="data-label">Peak severity</span><span class="data-value">${worstInfo.label} (${worstCode})</span></div>
+    <div style="font-size:10px;color:var(--text-dim);margin-top:6px;">Source: NWCG Predictive Services \u00B7 <a href="https://fsapps.nwcg.gov/psp/npsg/forecast/#/outlooks" target="_blank" rel="noopener noreferrer" style="color:var(--orange-light);">View full outlook</a></div>
   `;
 }
 
@@ -2265,20 +2330,14 @@ function renderFirePotential() {
 function renderHumidityRecovery() {
   const grid = APP.gridData?.properties;
   if (!grid || !grid.relativeHumidity) return;
-
   const rhValues = grid.relativeHumidity.values || [];
   const now = new Date();
-
-  // Get next 24 hours of RH values
   const upcoming = [];
   for (const v of rhValues) {
     const time = new Date(v.validTime.split('/')[0]);
     const diffHrs = (time - now) / 3600000;
-    if (diffHrs >= -1 && diffHrs <= 24) {
-      upcoming.push({ time, value: v.value, hour: time.getHours() });
-    }
+    if (diffHrs >= -1 && diffHrs <= 24) upcoming.push({ time, value: v.value, hour: time.getHours() });
   }
-
   if (upcoming.length === 0) return;
 
   const currentRH = upcoming[0]?.value || 0;
@@ -2286,70 +2345,65 @@ function renderHumidityRecovery() {
   const maxRH = Math.max(...upcoming.map(u => u.value));
   const overnightValues = upcoming.filter(u => u.hour >= 20 || u.hour <= 6);
   const overnightMax = overnightValues.length > 0 ? Math.max(...overnightValues.map(u => u.value)) : maxRH;
-  const recoveryAdequate = overnightMax >= 30;
+  const recoveryAdequate = overnightMax >= THRESHOLDS.RH_RECOVERY;
 
-  // Public view
-  let publicMsg;
-  if (recoveryAdequate) {
-    publicMsg = `Overnight humidity is expected to recover to <strong>${Math.round(overnightMax)}%</strong>,
-      which supports fuel moisture recovery. The minimum RH today will be around <strong>${Math.round(minRH)}%</strong>.`;
+  // Summary card
+  const grade = document.getElementById('rhGrade');
+  const note = document.getElementById('rhNote');
+  const alertEl = document.getElementById('rhAlert');
+
+  if (overnightMax >= THRESHOLDS.RH_GOOD_RECOVERY) {
+    grade.textContent = 'Good';
+    grade.style.color = 'var(--forest-light)';
+    note.innerHTML = `Overnight max ${Math.round(overnightMax)}%<br>Recovery supports fuel moisture`;
+    alertEl.className = 'rh-alert rh-alert-good';
+    alertEl.textContent = `Min RH today: ${Math.round(minRH)}%`;
+  } else if (overnightMax >= THRESHOLDS.RH_LOW) {
+    grade.textContent = 'Marginal';
+    grade.style.color = 'var(--orange)';
+    note.innerHTML = `Overnight max ${Math.round(overnightMax)}%<br>Below ideal recovery`;
+    alertEl.className = 'rh-alert rh-alert-danger';
+    alertEl.textContent = `Min RH dropping to ${Math.round(minRH)}%`;
   } else {
-    publicMsg = `<span style="color:var(--orange-text);font-weight:600;">Poor humidity recovery expected.</span>
-      Overnight RH only reaching <strong>${Math.round(overnightMax)}%</strong>.
-      Fuels will remain dry. Minimum RH dropping to <strong>${Math.round(minRH)}%</strong>.`;
-  }
-  document.getElementById('recoveryPublic').innerHTML = publicMsg;
-
-  // Status badge
-  const statusEl = document.getElementById('recoveryStatus');
-  if (overnightMax >= 40) {
-    statusEl.textContent = 'Good Recovery';
-    statusEl.style.color = 'var(--forest)';
-  } else if (overnightMax >= 25) {
-    statusEl.textContent = 'Marginal';
-    statusEl.style.color = 'var(--orange-text)';
-  } else {
-    statusEl.textContent = 'Poor Recovery';
-    statusEl.style.color = 'var(--red-flag)';
+    grade.textContent = 'Poor';
+    grade.style.color = 'var(--red-flag)';
+    note.innerHTML = `Overnight max ${Math.round(overnightMax)}%<br>Below recovery threshold`;
+    alertEl.className = 'rh-alert rh-alert-danger';
+    alertEl.textContent = `Poor recovery -- max ${Math.round(overnightMax)}% overnight`;
   }
 
-  // Pro mode values
+  // Pro mode detail
   document.getElementById('rhCurrent').textContent = `${Math.round(currentRH)}%`;
   const barFill = document.getElementById('rhBarFill');
   barFill.style.width = `${Math.min(currentRH, 100)}%`;
-  if (currentRH < 15) barFill.style.background = 'var(--red-flag)';
-  else if (currentRH < 25) barFill.style.background = 'var(--orange)';
-  else barFill.style.background = 'var(--forest)';
+  if (currentRH < THRESHOLDS.RH_CRITICAL) barFill.style.background = 'var(--red-flag)';
+  else if (currentRH < THRESHOLDS.RH_LOW) barFill.style.background = 'var(--orange)';
+  else barFill.style.background = 'var(--forest-light)';
 
   document.getElementById('rhMin').textContent = `${Math.round(minRH)}%`;
-  document.getElementById('rhMin').className = 'data-value ' + (minRH < 15 ? 'danger' : minRH < 25 ? 'warn' : 'good');
+  document.getElementById('rhMin').className = 'data-value ' + (minRH < THRESHOLDS.RH_CRITICAL ? 'danger' : minRH < THRESHOLDS.RH_LOW ? 'warn' : 'good');
   document.getElementById('rhMax').textContent = `${Math.round(overnightMax)}%`;
-  document.getElementById('rhRecoveryAdequate').textContent = recoveryAdequate ? 'Yes' : 'No - Extended drying';
+  document.getElementById('rhRecoveryAdequate').textContent = recoveryAdequate ? 'Yes' : 'No -- Extended drying';
   document.getElementById('rhRecoveryAdequate').className = 'data-value ' + (recoveryAdequate ? 'good' : 'danger');
 
-  // Recovery chart bars
+  // Recovery chart
   const chartEl = document.getElementById('recoveryChart');
   const timeEl = document.getElementById('recoveryTime');
   chartEl.innerHTML = '';
-
   const chartValues = upcoming.slice(0, 24);
   const chartMax = Math.max(...chartValues.map(v => v.value), 100);
-
   chartValues.forEach(v => {
     const pct = (v.value / chartMax) * 100;
     const bar = document.createElement('div');
     bar.className = 'recovery-bar';
-    if (v.value < 15) bar.className += ' critical';
-    else if (v.value < 25) bar.className += ' below-threshold';
+    if (v.value < THRESHOLDS.RH_CRITICAL) bar.className += ' critical';
+    else if (v.value < THRESHOLDS.RH_LOW) bar.className += ' below-threshold';
     bar.style.height = `${pct}%`;
     bar.title = `${v.time.toLocaleTimeString([], {hour:'numeric'})} - RH: ${Math.round(v.value)}%`;
     chartEl.appendChild(bar);
   });
-
   if (chartValues.length > 0) {
-    const first = chartValues[0].time.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
-    const last = chartValues[chartValues.length-1].time.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
-    timeEl.innerHTML = `<span>${first}</span><span>${last}</span>`;
+    timeEl.innerHTML = `<span>${chartValues[0].time.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}</span><span>${chartValues[chartValues.length-1].time.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}</span>`;
   }
 }
 
@@ -2357,118 +2411,60 @@ function renderHumidityRecovery() {
 function renderForecast() {
   const strip = document.getElementById('forecastStrip');
   const hourly = APP.hourlyData?.properties?.periods;
-  if (!hourly) return;
-
+  if (!hourly) { strip.innerHTML = '<div style="font-size:11px;color:var(--text-muted);padding:8px;">Forecast unavailable</div>'; return; }
   strip.innerHTML = '';
   const rhValues = APP.gridData?.properties?.relativeHumidity?.values || [];
-
-  // Show next 12 hourly periods
-  hourly.slice(0, 12).forEach((period, i) => {
+  hourly.slice(0, 12).forEach(period => {
     const time = new Date(period.startTime);
     const rhAtTime = findRHAtTime(rhValues, time);
-    const icon = getWeatherIcon(period.shortForecast, period.isDaytime);
-
     const item = document.createElement('div');
     item.className = 'forecast-item';
-    item.innerHTML = `
-      <div class="fi-time">${time.toLocaleTimeString([], {hour:'numeric'})}</div>
-      <div class="fi-icon">${icon}</div>
-      <div class="fi-temp">${period.temperature}\u00B0</div>
-      <div class="fi-rh">RH: ${rhAtTime !== null ? Math.round(rhAtTime) + '%' : '--'}</div>
-    `;
+    item.innerHTML = `<div class="fi-time">${time.toLocaleTimeString([], {hour:'numeric'})}</div><div class="fi-temp">${period.temperature}\u00B0</div><div class="fi-detail">RH ${rhAtTime !== null ? Math.round(rhAtTime) + '%' : '--'}</div>`;
     strip.appendChild(item);
   });
 }
 
-// -- SAFETY PRECAUTIONS --
+// -- PRECAUTIONS --
 function renderPrecautions() {
   const list = document.getElementById('precautionsList');
   const rh = getCurrentValue(APP.gridData?.properties?.relativeHumidity);
   const hourly = APP.hourlyData?.properties?.periods?.[0];
   const precautions = [];
 
-  // Always-applicable
-  precautions.push({
-    icon: '\u{1F4F1}',
-    text: 'Monitor local conditions. Weather can shift rapidly in forested terrain. Keep checking Swivel-Head Pro.'
-  });
-
-  // Wind-based
   let windSpeed = 0;
-  if (hourly?.windSpeed) {
-    const match = hourly.windSpeed.match(/(\d+)/);
-    if (match) windSpeed = parseInt(match[1]);
-  }
-  if (windSpeed > 20) {
-    precautions.push({
-      icon: '\u{1F4A8}',
-      text: `High winds (${hourly.windSpeed}) increase fire spread and spotting potential. Secure loose materials and be alert to changing smoke behavior.`
-    });
-  }
+  if (hourly?.windSpeed) { const m = hourly.windSpeed.match(/(\d+)/); if (m) windSpeed = parseInt(m[1]); }
 
-  // RH-based
-  if (rh !== null && rh < 15) {
-    precautions.push({
-      icon: '\u{1F525}',
-      text: 'Critically low humidity. Any ignition source can start a wildfire. Avoid all spark-producing activities.'
-    });
-  } else if (rh !== null && rh < 25) {
-    precautions.push({
-      icon: '\u26A0',
-      text: 'Low humidity contributes to rapid fire spread. Use extreme caution with any heat-producing equipment.'
-    });
-  }
+  if (windSpeed > 20) precautions.push({ text: `High winds (${hourly.windSpeed}) increase fire spread and spotting potential.` });
+  if (rh !== null && rh < THRESHOLDS.RH_CRITICAL) precautions.push({ text: 'Critically low humidity. Any ignition source can start a wildfire.' });
+  else if (rh !== null && rh < THRESHOLDS.RH_LOW) precautions.push({ text: 'Low humidity contributes to rapid fire spread. Extreme caution with heat-producing equipment.' });
+  if (APP.fireAlerts && APP.fireAlerts.length > 0) precautions.push({ text: 'Red Flag Warning in effect. Critical fire weather conditions. Follow all fire restrictions.' });
+  precautions.push({ text: 'Carry fire extinguisher, shovel, and water in vehicles through forested areas.' });
+  precautions.push({ text: 'Obey posted fire restrictions and forest closure orders. Check with local Ranger District.' });
+  precautions.push({ text: 'Monitor conditions. Weather shifts rapidly in forested terrain.' });
 
-  // Red flag
-  if (APP.fireAlerts && APP.fireAlerts.length > 0) {
-    precautions.push({
-      icon: '\u{1F6A9}',
-      text: 'Red Flag Warning in effect. Critical fire weather conditions exist. Follow all local fire restrictions and be prepared to evacuate if needed.'
-    });
-  }
-
-  // General
-  precautions.push({
-    icon: '\u{1F9EF}',
-    text: 'Carry fire extinguisher, shovel, and water in vehicles when traveling through forested areas.'
-  });
-  precautions.push({
-    icon: '\u{1F6B7}',
-    text: 'Obey all posted fire restrictions and forest closure orders. Check with the local Ranger District.'
-  });
-
-  list.innerHTML = precautions.map(p =>
-    `<div class="precaution">
-      <div class="precaution-icon">${p.icon}</div>
-      <div>${p.text}</div>
-    </div>`
-  ).join('');
+  document.getElementById('precautionsLabel').textContent = `Active precautions (${precautions.length})`;
+  list.innerHTML = precautions.map(p => `<div class="precaution-item"><div class="precaution-dot"></div><div>${p.text}</div></div>`).join('');
 }
 
-// -- FIRE WEATHER INDICES (Pro mode) --
+// -- FIRE WEATHER INDICES --
 function renderFireIndices() {
   const grid = APP.gridData?.properties;
   if (!grid) return;
-
   const tbody = document.getElementById('indicesTable');
   const indices = [
-    { name: 'Relative Humidity', key: 'relativeHumidity', unit: '%', threshold: 25, convert: null },
-    { name: 'Wind Speed', key: 'windSpeed', unit: 'mph', threshold: null, convert: 0.621371 },
-    { name: 'Wind Gust', key: 'windGust', unit: 'mph', threshold: null, convert: 0.621371 },
-    { name: 'Transport Wind', key: 'transportWindSpeed', unit: 'mph', threshold: null, convert: 2.23694 },
-    { name: 'Mixing Height', key: 'mixingHeight', unit: 'ft', threshold: null, convert: 3.28084 },
-    { name: 'Haines Index', key: 'hainesIndex', unit: '', threshold: 5, convert: null },
-    { name: 'Grassland Fire Danger', key: 'grasslandFireDangerIndex', unit: '', threshold: null, convert: null },
-    { name: 'Davis Stability', key: 'davisStabilityIndex', unit: '', threshold: null, convert: null },
+    {name:'Relative Humidity',key:'relativeHumidity',unit:'%',convert:null},
+    {name:'Wind Speed',key:'windSpeed',unit:'mph',convert:0.621371},
+    {name:'Wind Gust',key:'windGust',unit:'mph',convert:0.621371},
+    {name:'Transport Wind',key:'transportWindSpeed',unit:'mph',convert:2.23694},
+    {name:'Mixing Height',key:'mixingHeight',unit:'ft',convert:3.28084},
+    {name:'Haines Index',key:'hainesIndex',unit:'',convert:null},
+    {name:'Grassland Fire Danger',key:'grasslandFireDangerIndex',unit:'',convert:null},
+    {name:'Davis Stability',key:'davisStabilityIndex',unit:'',convert:null},
   ];
-
   tbody.innerHTML = indices.map(idx => {
     let val = getCurrentValue(grid[idx.key]);
     if (val === null) return '';
     if (idx.convert) val = val * idx.convert;
-    const displayVal = `${Math.round(val)} ${idx.unit}`;
-
-    // Get previous value for trend (apply same unit conversion)
     let prevVal = getPreviousValue(grid[idx.key]);
     let trend = '--';
     if (prevVal !== null) {
@@ -2478,12 +2474,7 @@ function renderFireIndices() {
       else if (diff > 0) trend = `\u2191 +${Math.round(diff)}`;
       else trend = `\u2193 ${Math.round(diff)}`;
     }
-
-    return `<tr>
-      <td>${idx.name}</td>
-      <td>${displayVal}</td>
-      <td>${trend}</td>
-    </tr>`;
+    return `<tr><td>${idx.name}</td><td>${Math.round(val)} ${idx.unit}</td><td>${trend}</td></tr>`;
   }).join('');
 }
 
@@ -2491,15 +2482,13 @@ function renderFireIndices() {
 // UTILITY FUNCTIONS
 // ============================================================
 function parseDurationMs(dur) {
-  if (!dur) return 3600000; // default 1 hour
+  if (!dur) return 3600000;
   let ms = 0;
-  const dayMatch = dur.match(/(\d+)D/);
-  const hourMatch = dur.match(/(\d+)H/);
-  const minMatch = dur.match(/(\d+)M/);
-  if (dayMatch) ms += parseInt(dayMatch[1]) * 86400000;
-  if (hourMatch) ms += parseInt(hourMatch[1]) * 3600000;
-  if (minMatch) ms += parseInt(minMatch[1]) * 60000;
-  return ms || 3600000; // fallback 1 hour if nothing parsed
+  const d = dur.match(/(\d+)D/), h = dur.match(/(\d+)H/), m = dur.match(/(\d+)M/);
+  if (d) ms += parseInt(d[1]) * 86400000;
+  if (h) ms += parseInt(h[1]) * 3600000;
+  if (m) ms += parseInt(m[1]) * 60000;
+  return ms || 3600000;
 }
 
 function getCurrentValue(dataObj) {
@@ -2508,14 +2497,11 @@ function getCurrentValue(dataObj) {
   for (const v of dataObj.values) {
     const parts = v.validTime.split('/');
     const start = new Date(parts[0]);
-    const durationMs = parseDurationMs(parts[1]);
-    const end = new Date(start.getTime() + durationMs);
+    const end = new Date(start.getTime() + parseDurationMs(parts[1]));
     if (now >= start && now < end) return v.value;
   }
-  // Return the closest future value, or last known
   for (const v of dataObj.values) {
-    const start = new Date(v.validTime.split('/')[0]);
-    if (start > now) return v.value;
+    if (new Date(v.validTime.split('/')[0]) > now) return v.value;
   }
   return dataObj.values[dataObj.values.length - 1].value;
 }
@@ -2523,22 +2509,18 @@ function getCurrentValue(dataObj) {
 function getPreviousValue(dataObj) {
   if (!dataObj || !dataObj.values || dataObj.values.length < 2) return null;
   const now = new Date();
-  let currentIdx = -1;
+  let idx = -1;
   for (let i = 0; i < dataObj.values.length; i++) {
-    const parts = dataObj.values[i].validTime.split('/');
-    const start = new Date(parts[0]);
-    if (start <= now) currentIdx = i;
+    if (new Date(dataObj.values[i].validTime.split('/')[0]) <= now) idx = i;
   }
-  if (currentIdx > 0) return dataObj.values[currentIdx - 1].value;
-  return null;
+  return idx > 0 ? dataObj.values[idx - 1].value : null;
 }
 
 function findRHAtTime(rhValues, targetTime) {
   for (const v of rhValues) {
     const parts = v.validTime.split('/');
     const start = new Date(parts[0]);
-    const durationMs = parseDurationMs(parts[1]);
-    const end = new Date(start.getTime() + durationMs);
+    const end = new Date(start.getTime() + parseDurationMs(parts[1]));
     if (targetTime >= start && targetTime < end) return v.value;
   }
   return null;
@@ -2546,215 +2528,153 @@ function findRHAtTime(rhValues, targetTime) {
 
 function calculateFireRisk(rh, hourlyPeriod) {
   let windSpeed = 0;
-  if (hourlyPeriod?.windSpeed) {
-    const match = hourlyPeriod.windSpeed.match(/(\d+)/);
-    if (match) windSpeed = parseInt(match[1]);
-  }
-
-  const hasRedFlag = APP.fireAlerts && APP.fireAlerts.length > 0;
-  if (hasRedFlag) return { label: 'CRITICAL', class: 'danger' };
-  if (rh !== null && rh < 10) return { label: 'EXTREME', class: 'danger' };
-  if (rh !== null && rh < 15) return { label: 'VERY HIGH', class: 'danger' };
-  if ((rh !== null && rh < 25) || windSpeed > 25) return { label: 'HIGH', class: 'warn' };
-  if ((rh !== null && rh < 40) || windSpeed > 15) return { label: 'MODERATE', class: 'warn' };
+  if (hourlyPeriod?.windSpeed) { const m = hourlyPeriod.windSpeed.match(/(\d+)/); if (m) windSpeed = parseInt(m[1]); }
+  if (APP.fireAlerts && APP.fireAlerts.length > 0) return { label: 'CRITICAL', class: 'danger' };
+  if (rh !== null && rh < THRESHOLDS.FIRE_RISK_EXTREME_RH) return { label: 'EXTREME', class: 'danger' };
+  if (rh !== null && rh < THRESHOLDS.FIRE_RISK_VERY_HIGH_RH) return { label: 'VERY HIGH', class: 'danger' };
+  if ((rh !== null && rh < THRESHOLDS.RH_LOW) || windSpeed > THRESHOLDS.FIRE_RISK_HIGH_WIND) return { label: 'HIGH', class: 'warn' };
+  if ((rh !== null && rh < 40) || windSpeed > THRESHOLDS.FIRE_RISK_MOD_WIND) return { label: 'MODERATE', class: 'warn' };
   return { label: 'LOW', class: 'good' };
 }
 
-function getWeatherIcon(forecast, isDaytime) {
-  const f = forecast.toLowerCase();
-  if (f.includes('thunder') || f.includes('storm')) return '\u26C8';
-  if (f.includes('rain') || f.includes('shower')) return '\u{1F327}';
-  if (f.includes('snow')) return '\u{1F328}';
-  if (f.includes('fog') || f.includes('mist')) return '\u{1F32B}';
-  if (f.includes('cloud') || f.includes('overcast')) return '\u2601';
-  if (f.includes('partly') || f.includes('mostly sunny')) return '\u26C5';
-  if (f.includes('smoke')) return '\u{1F32B}';
-  if (f.includes('wind')) return '\u{1F4A8}';
-  return isDaytime ? '\u2600' : '\u{1F319}';
-}
-
-function showLoading(text) {
-  document.getElementById('loadingText').textContent = text;
-  document.getElementById('loadingOverlay').classList.add('visible');
-}
-
-function hideLoading() {
-  document.getElementById('loadingOverlay').classList.remove('visible');
-}
-
 function determinePAL(rh, hourly) {
-  // PAL determination based on fire weather conditions
-  // This is a simplified model - production would pull from actual forest dispatch
   let windSpeed = 0;
-  if (hourly?.windSpeed) {
-    const match = hourly.windSpeed.match(/(\d+)/);
-    if (match) windSpeed = parseInt(match[1]);
-  }
-
+  if (hourly?.windSpeed) { const m = hourly.windSpeed.match(/(\d+)/); if (m) windSpeed = parseInt(m[1]); }
   const hasRedFlag = APP.fireAlerts && APP.fireAlerts.length > 0;
 
-  if (hasRedFlag || (rh !== null && rh < 10) || windSpeed > 35) {
+  if (hasRedFlag || (rh !== null && rh < THRESHOLDS.FIRE_RISK_EXTREME_RH) || windSpeed > THRESHOLDS.WIND_EXTREME) {
     return {
-      level: 'E', levelName: 'Extreme',
-      nfdrsRating: 'Extreme',
-      description: 'Extreme fire danger conditions exist. All project activity is <strong>shut down</strong>. Critical fire weather is in effect.',
-      restrictions: [
-        { icon: '\u26D4', text: 'ALL project activity suspended. No exceptions.' },
-        { icon: '\u{1F6A8}', text: 'Industrial operations prohibited in wildland areas.' },
-        { icon: '\u{1F4DE}', text: 'Contact local dispatch before ANY field activity.' },
-        { icon: '\u{1F6B7}', text: 'Public use restrictions likely in effect. Check forest orders.' }
+      level:'E', levelName:'Extreme', nfdrsRating:'Extreme',
+      description:'Extreme fire danger. All project activity <strong>shut down</strong>. Critical fire weather in effect.',
+      restrictions:[
+        {text:'ALL project activity suspended. No exceptions.'},
+        {text:'Industrial operations prohibited in wildland areas.'},
+        {text:'Contact local dispatch before ANY field activity.'},
+        {text:'Public use restrictions likely in effect. Check forest orders.'}
       ]
     };
-  } else if ((rh !== null && rh < 15) || windSpeed > 25) {
+  } else if ((rh !== null && rh < THRESHOLDS.RH_CRITICAL) || windSpeed > THRESHOLDS.WIND_VERY_HIGH) {
     return {
-      level: 'D', levelName: 'Very High',
-      nfdrsRating: 'Very High',
-      description: 'Very high fire danger. Significant restrictions on project activity. Fire suppression resources on high alert.',
-      restrictions: [
-        { icon: '\u26A0', text: 'Most mechanical operations restricted or require fire watch.' },
-        { icon: '\u{1F9EF}', text: 'Welding and grinding prohibited without exemption.' },
-        { icon: '\u{1F4A7}', text: 'Water tenders must be on-site for any approved activity.' },
-        { icon: '\u{1F440}', text: 'Extended fire watch required after all operations cease.' }
+      level:'D', levelName:'Very High', nfdrsRating:'Very High',
+      description:'Very high fire danger. Significant restrictions. Fire suppression on high alert.',
+      restrictions:[
+        {text:'Most mechanical operations restricted or require fire watch.'},
+        {text:'Welding and grinding prohibited without exemption.'},
+        {text:'Water tenders must be on-site for any approved activity.'},
+        {text:'Extended fire watch required after operations cease.'}
       ]
     };
-  } else if ((rh !== null && rh < 25) || windSpeed > 15) {
+  } else if ((rh !== null && rh < THRESHOLDS.RH_LOW) || windSpeed > THRESHOLDS.WIND_HIGH) {
     return {
-      level: 'C', levelName: 'High',
-      nfdrsRating: 'High',
-      description: 'High fire danger. Project activities permitted with additional precautions and fire prevention measures.',
-      restrictions: [
-        { icon: '\u26A0', text: 'Chainsaws require spark arrestors and fire extinguishers.' },
-        { icon: '\u23F0', text: 'Hoot owl restrictions may apply (shutdown by 1:00 PM).' },
-        { icon: '\u{1F9EF}', text: 'Hot work requires fire watch and water source.' },
-        { icon: '\u{1F4CB}', text: 'File activity report with local dispatch daily.' }
+      level:'C', levelName:'High', nfdrsRating:'High',
+      description:'High fire danger. Activities permitted with additional precautions and fire prevention.',
+      restrictions:[
+        {text:'Chainsaws require spark arrestors and fire extinguishers.'},
+        {text:'Hoot owl restrictions may apply (shutdown by 1:00 PM).'},
+        {text:'Hot work requires fire watch and water source.'},
+        {text:'File activity report with local dispatch daily.'}
       ]
     };
-  } else if ((rh !== null && rh < 40) || windSpeed > 10) {
+  } else if ((rh !== null && rh < 40) || windSpeed > THRESHOLDS.WIND_MODERATE) {
     return {
-      level: 'B', levelName: 'Moderate',
-      nfdrsRating: 'Moderate',
-      description: 'Moderate fire danger. Standard fire prevention measures required for all project activities.',
-      restrictions: [
-        { icon: '\u2705', text: 'Most project activities permitted with standard precautions.' },
-        { icon: '\u{1F9EF}', text: 'Fire tools and water required at all work sites.' },
-        { icon: '\u{1F4CB}', text: 'Maintain awareness of changing conditions throughout the day.' },
-        { icon: '\u{1F6AC}', text: 'No smoking outside enclosed vehicles or designated areas.' }
+      level:'B', levelName:'Moderate', nfdrsRating:'Moderate',
+      description:'Moderate fire danger. Standard fire prevention measures required.',
+      restrictions:[
+        {text:'Most activities permitted with standard precautions.'},
+        {text:'Fire tools and water required at all work sites.'},
+        {text:'Maintain awareness of changing conditions throughout the day.'}
       ]
     };
   } else {
     return {
-      level: 'A', levelName: 'Low',
-      nfdrsRating: 'Low',
-      description: 'Low fire danger. Normal project activities permitted. Standard fire prevention measures apply.',
-      restrictions: [
-        { icon: '\u2705', text: 'All project activities permitted under normal operating procedures.' },
-        { icon: '\u{1F9EF}', text: 'Standard fire prevention equipment required.' },
-        { icon: '\u{1F4CB}', text: 'Monitor conditions; fire danger can change rapidly.' }
+      level:'A', levelName:'Low', nfdrsRating:'Low',
+      description:'Low fire danger. Normal project activities permitted.',
+      restrictions:[
+        {text:'All project activities permitted under normal procedures.'},
+        {text:'Standard fire prevention equipment required.'},
+        {text:'Monitor conditions; fire danger can change rapidly.'}
       ]
     };
   }
 }
 
 // ============================================================
-// DARK / LIGHT THEME TOGGLE
+// THEME & PRO MODE TOGGLES
 // ============================================================
-// Default: dark mode (forest green). Toggle: active = dark, inactive = light.
-APP.darkMode = true;
-
 function toggleTheme() {
   APP.darkMode = !APP.darkMode;
   document.body.classList.toggle('light-mode', !APP.darkMode);
-  document.getElementById('themeToggle').classList.toggle('active', APP.darkMode);
-  document.getElementById('themeLabel').innerHTML = APP.darkMode ? '\u{1F31A}' : '\u{2600}\u{FE0F}';
+  document.getElementById('themeToggle').setAttribute('aria-checked', APP.darkMode);
+}
+
+function toggleProMode() {
+  APP.proMode = !APP.proMode;
+  document.body.classList.toggle('pro-mode', APP.proMode);
+  document.getElementById('proToggle').setAttribute('aria-checked', APP.proMode);
+  // Show/hide extended metric grid
+  const proGrid = document.getElementById('metricGridPro');
+  if (proGrid) proGrid.style.display = APP.proMode ? 'grid' : 'none';
 }
 
 // ============================================================
-// NOTIFICATIONS
+// SERVICE WORKER
 // ============================================================
-async function toggleNotifications() {
-  const btn = document.getElementById('notifBtn');
-
-  if (!('Notification' in window)) {
-    alert('Notifications are not supported in this browser.');
-    return;
-  }
-
-  if (!APP.notificationsEnabled) {
-    const permission = await Notification.requestPermission();
-    if (permission === 'granted') {
-      APP.notificationsEnabled = true;
-      btn.classList.add('enabled');
-      scheduleDaily7amCheck();
-      // Show confirmation
-      new Notification('Swivel-Head Pro Notifications Enabled', {
-        body: 'You will receive daily fire weather updates at 7:00 AM local time.',
-        icon: './icon-512.png'
-      });
-    }
-  } else {
-    APP.notificationsEnabled = false;
-    btn.classList.remove('enabled');
-  }
-}
-
-function scheduleDaily7amCheck() {
-  // Calculate ms until next 7am
-  const now = new Date();
-  const next7am = new Date(now);
-  next7am.setHours(7, 0, 0, 0);
-  if (now >= next7am) next7am.setDate(next7am.getDate() + 1);
-
-  const msUntil = next7am - now;
-
-  setTimeout(() => {
-    if (APP.notificationsEnabled) {
-      sendDailyNotification();
-      // Then repeat every 24h
-      setInterval(() => {
-        if (APP.notificationsEnabled) sendDailyNotification();
-      }, 24 * 60 * 60 * 1000);
-    }
-  }, msUntil);
-}
-
-function sendDailyNotification() {
-  if (!APP.forestData) return;
-  const forestName = APP.forestData.properties.FORESTNAME || 'Your National Forest';
-  const rh = getCurrentValue(APP.gridData?.properties?.relativeHumidity);
-  const body = rh !== null
-    ? `Current RH: ${Math.round(rh)}%. Check Swivel-Head Pro for full conditions.`
-    : 'Tap to check today\'s fire weather conditions.';
-
-  new Notification(`${forestName} - Daily Update`, {
-    body: body,
-    icon: './icon-512.png',
-    tag: 'swivel-head-daily'
-  });
-}
-
-// ============================================================
-// SERVICE WORKER REGISTRATION
-// ============================================================
-// Only register SW when served from our own origin (localhost or deployed domain).
-// Skip in sandboxed viewers (claudeusercontent.com, file://, etc.)
-if ('serviceWorker' in navigator &&
-    window.location.protocol !== 'file:' &&
-    !window.location.hostname.includes('claudeusercontent.com')) {
+if ('serviceWorker' in navigator && window.location.protocol !== 'file:' && !window.location.hostname.includes('claudeusercontent.com')) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
 // ============================================================
-// INIT
+// EVENT LISTENERS (no inline handlers)
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
   initMap();
   enableMapClick();
-  // If map isn't available, auto-show the manual location panel
+
+  // Location panel
+  document.getElementById('locateBtn').addEventListener('click', geolocateUser);
+  document.getElementById('locPanelClose').addEventListener('click', toggleLocPanel);
+  document.getElementById('locPanelCancel').addEventListener('click', toggleLocPanel);
+  document.getElementById('goCoords').addEventListener('click', useManualCoords);
+
+  // Location search
+  document.getElementById('locSearchInput').addEventListener('input', function() {
+    filterLocationsBySearch(this.value);
+  });
+
+  // Toggles
+  document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+  document.getElementById('proToggle').addEventListener('click', toggleProMode);
+
+  // Keyboard support for toggles
+  ['themeToggle', 'proToggle'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.click(); }
+    });
+  });
+
+  // Error retry
+  document.getElementById('errorRetry').addEventListener('click', () => {
+    if (APP.userLat !== null && APP.userLon !== null) {
+      hideErrorBanner();
+      loadLocationData(APP.userLat, APP.userLon);
+    }
+  });
+
+  // Auto-show manual panel if map not available
   if (!APP.mapAvailable) {
-    document.getElementById('manualLocPanel').classList.add('visible');
+    document.getElementById('locPanel').classList.add('visible');
   }
+
+  // Set initial toggle states
+  document.getElementById('themeToggle').setAttribute('aria-checked', 'true');
+
+  // Pro mode starts enabled (matching original default)
+  APP.proMode = true;
+  document.body.classList.add('pro-mode');
+  document.getElementById('proToggle').setAttribute('aria-checked', 'true');
+  const proGrid = document.getElementById('metricGridPro');
+  if (proGrid) proGrid.style.display = 'grid';
 });
 </script>
 </body>
 </html>
-
