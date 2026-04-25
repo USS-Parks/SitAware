@@ -1,6 +1,6 @@
-# Swivel-Head -- GitHub Pages Deployment Guide
+# Swivel-Head Pro -- GitHub Pages Deployment Guide
 
-This walks you through getting Swivel-Head live on the internet so your Yurok OES team (or anyone you share the link with) can open it on their phone, tap "Add to Home Screen," and use it like a native app. No app store, no developer account, no fees.
+This walks you through getting Swivel-Head Pro live on the internet so your Yurok OES team (or anyone you share the link with) can open it on their phone, tap "Add to Home Screen," and use it like a native app. No app store, no developer account, no fees.
 
 ---
 
@@ -8,7 +8,7 @@ This walks you through getting Swivel-Head live on the internet so your Yurok OE
 
 - A GitHub account (free): https://github.com/signup
 - Git installed on your computer
-- Your three Swivel-Head files: `index.html`, `manifest.json`, `sw.js`
+- Your three Swivel-Head Pro files: `index.html`, `manifest.json`, `sw.js`
 
 If you don't have Git installed, download it from https://git-scm.com/downloads and run the installer with default settings. On Mac, open Terminal and type `git` -- it will prompt you to install Xcode Command Line Tools, which includes Git.
 
@@ -27,8 +27,8 @@ Already created at: https://github.com/USS-Parks/SitAware
 Open a terminal (Command Prompt on Windows, Terminal on Mac) and run these commands one at a time.
 
 ```bash
-# Navigate to the Swivel-Head folder
-cd C:\Users\17076\Documents\Claude\Swivel-Head
+# Navigate to the Swivel-Head Pro folder
+cd C:\Users\17076\Documents\Claude\ForestWatch
 
 # Initialize a git repository
 git init
@@ -37,7 +37,7 @@ git init
 git add index.html manifest.json sw.js
 
 # Create the first commit
-git commit -m "Swivel-Head PWA v1.0"
+git commit -m "Swivel-Head Pro PWA v1.0"
 
 # Point it at your GitHub repo
 git remote add origin https://github.com/USS-Parks/SitAware.git
@@ -89,14 +89,14 @@ That's it. That URL is your app. Open it in Chrome on your phone right now and v
 2. Tap the three-dot menu (top right)
 3. Tap **"Add to Home Screen"** or **"Install app"**
 4. Tap **Install**
-5. Swivel-Head appears on your home screen with the fire icon
+5. Swivel-Head Pro appears on your home screen with the fire icon
 
 ### iPhone (Safari)
 1. Open the URL in **Safari** (not Chrome -- iOS only supports PWA install from Safari)
 2. Tap the **Share** button (square with arrow, bottom center)
 3. Scroll down and tap **"Add to Home Screen"**
 4. Tap **Add**
-5. Swivel-Head appears on your home screen
+5. Swivel-Head Pro appears on your home screen
 
 Once installed, it opens in standalone mode -- no browser chrome, no URL bar. Looks and feels like a native app.
 
@@ -107,7 +107,7 @@ Once installed, it opens in standalone mode -- no browser chrome, no URL bar. Lo
 
 Send your OES staff this message (or something like it):
 
-> **Swivel-Head is live.** Open this link on your phone and add it to your home screen:
+> **Swivel-Head Pro is live.** Open this link on your phone and add it to your home screen:
 > 
 > https://uss-parks.github.io/SitAware/
 > 
@@ -126,7 +126,7 @@ That's the entire distribution process. No MDM, no app store review, no sideload
 When you want to push changes (new features, bug fixes):
 
 ```bash
-cd C:\Users\17076\Documents\Claude\Swivel-Head
+cd C:\Users\17076\Documents\Claude\ForestWatch
 
 # Stage your changed files
 git add index.html manifest.json sw.js
@@ -167,7 +167,7 @@ HTTPS is required for GPS and service worker to function. GitHub Pages provides 
 Before pushing changes to GitHub, you can test locally:
 
 ```bash
-cd C:\Users\17076\Documents\Claude\Swivel-Head
+cd C:\Users\17076\Documents\Claude\ForestWatch
 
 # Start a local web server (Python 3)
 python3 -m http.server 8080

@@ -1,4 +1,4 @@
-// Swivel-Head Service Worker
+// Swivel-Head Pro Service Worker
 // Handles offline caching and notification scheduling
 
 const CACHE_NAME = 'swivel-head-v1';
@@ -42,7 +42,8 @@ self.addEventListener('fetch', event => {
   if (url.hostname === 'api.weather.gov' ||
       url.hostname === 'apps.fs.usda.gov' ||
       url.hostname === 'fsapps.nwcg.gov' ||
-      url.hostname === 'gis.blm.gov') {
+      url.hostname === 'gis.blm.gov' ||
+      url.hostname === 'services3.arcgis.com') {
     event.respondWith(fetch(event.request));
     return;
   }
@@ -69,7 +70,7 @@ self.addEventListener('fetch', event => {
 // Push notification handler (for future backend integration)
 self.addEventListener('push', event => {
   const data = event.data ? event.data.json() : {};
-  const title = data.title || 'Swivel-Head Update';
+  const title = data.title || 'Swivel-Head Pro Update';
   const options = {
     body: data.body || 'Check your daily fire weather conditions.',
     icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">\uD83D\uDD25</text></svg>',
