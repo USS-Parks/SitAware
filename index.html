@@ -786,6 +786,10 @@ body.light-mode #map-container {
     <span id="forestAcres">-- acres</span>
     <span id="forestGACC">GACC: --</span>
   </div>
+  <div id="tribalBanner" style="display:none;margin-top:6px;padding-top:6px;border-top:1px solid rgba(253,245,230,0.2);">
+    <span style="font-size:13px;font-weight:700;color:var(--cream);" id="tribalName"></span>
+    <span style="font-size:11px;color:var(--cream-dark);margin-left:8px;" id="tribalAcres"></span>
+  </div>
 </div>
 
 <!-- MAP -->
@@ -1084,8 +1088,9 @@ body.light-mode #map-container {
       Data sourced from <a href="https://weather.gov" target="_blank">weather.gov</a>,
       <a href="https://apps.fs.usda.gov" target="_blank">USFS</a>,
       <a href="https://gis.blm.gov" target="_blank">BLM</a>,
-      <a href="https://gacc.nifc.gov" target="_blank">GACC/NIFC</a>, and
-      <a href="https://fsapps.nwcg.gov" target="_blank">NWCG</a><br>
+      <a href="https://gacc.nifc.gov" target="_blank">GACC/NIFC</a>,
+      <a href="https://fsapps.nwcg.gov" target="_blank">NWCG</a>, and
+      <a href="https://tigerweb.geo.census.gov" target="_blank">Census TIGERweb</a><br>
       <span style="display:block;margin:8px 0;font-size:12px;color:rgba(253,245,230,0.75);font-weight:600;">Designed and Created by Basho Parks &mdash; 2026</span>
       Last updated: <span id="lastUpdated">--</span>
     </div>
@@ -1104,11 +1109,13 @@ const APP = {
   mapAvailable: false,
   userMarker: null,
   forestLayer: null,
+  tribalLayer: null,
   userLat: null,
   userLon: null,
   proMode: false,
   forestData: null,
   landData: null,   // BLM/State/NPS land from SMA endpoint
+  tribalData: null,  // Tribal reservation from Census TIGERweb
   weatherData: null,
   gridData: null,
   alertsData: null,
@@ -1117,6 +1124,9 @@ const APP = {
 
   // USFS ArcGIS endpoint for National Forest boundaries
   USFS_URL: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_ForestSystemBoundaries_01/MapServer/0/query',
+
+  // Census TIGERweb - Federal American Indian Reservations
+  TRIBAL_URL: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2023/MapServer',
 
   // BLM Surface Management Agency endpoint (covers ALL federal/state/local lands)
   SMA_URL: 'https://gis.blm.gov/arcgis/rest/services/lands/BLM_Natl_SMA_Cached_without_PriUnk/MapServer/1/query',
@@ -1272,7 +1282,8 @@ async function loadLocationData(lat, lon) {
   }
 
   try {
-    await fetchForestData();
+    // Fetch land jurisdiction and tribal territory in parallel
+    await Promise.all([fetchForestData(), fetchTribalData()]);
     showLoading('Pulling weather data...');
     await fetchWeatherData();
     showLoading('Checking alerts...');
@@ -1520,6 +1531,87 @@ function drawForestBoundary(feature) {
 }
 
 // ============================================================
+// TRIBAL TERRITORY (Census TIGERweb)
+// ============================================================
+async function fetchTribalData() {
+  try {
+    // Query both federal (layer 36) and state (layer 40) reservations in parallel
+    const baseParams = `geometry=${APP.userLon},${APP.userLat}`
+      + `&geometryType=esriGeometryPoint`
+      + `&spatialRel=esriSpatialRelIntersects`
+      + `&inSR=4326&outSR=4326`
+      + `&outFields=NAME,BASENAME,GEOID,AREALAND`
+      + `&returnGeometry=true`
+      + `&maxAllowableOffset=0.005`
+      + `&f=geojson`;
+
+    const [fedResp, stResp] = await Promise.all([
+      fetchWithRetry(`${APP.TRIBAL_URL}/36/query?${baseParams}`),
+      fetchWithRetry(`${APP.TRIBAL_URL}/40/query?${baseParams}`)
+    ]);
+
+    let tribalFeature = null;
+    let tribalSource = null;
+
+    if (fedResp.ok) {
+      const fedData = await fedResp.json();
+      if (fedData.features && fedData.features.length > 0) {
+        tribalFeature = fedData.features[0];
+        tribalSource = 'federal';
+      }
+    }
+
+    // State reservation as fallback
+    if (!tribalFeature && stResp.ok) {
+      const stData = await stResp.json();
+      if (stData.features && stData.features.length > 0) {
+        tribalFeature = stData.features[0];
+        tribalSource = 'state';
+      }
+    }
+
+    if (tribalFeature) {
+      const p = tribalFeature.properties;
+      APP.tribalData = {
+        name: p.NAME || p.BASENAME || 'Unknown',
+        basename: p.BASENAME || '',
+        geoid: p.GEOID || '',
+        acres: p.AREALAND ? Math.round(p.AREALAND * 0.000247105) : null,
+        source: tribalSource
+      };
+      drawTribalBoundary(tribalFeature);
+    } else {
+      APP.tribalData = null;
+    }
+  } catch (err) {
+    console.error('Tribal data fetch error:', err);
+    APP.tribalData = null;
+  }
+}
+
+function drawTribalBoundary(feature) {
+  if (!APP.mapAvailable) return;
+
+  if (APP.tribalLayer) APP.map.removeLayer(APP.tribalLayer);
+
+  APP.tribalLayer = L.geoJSON(feature, {
+    style: {
+      color: '#D4702A',
+      weight: 2.5,
+      fillColor: '#D4702A',
+      fillOpacity: 0.06,
+      dashArray: '8 4 2 4'
+    }
+  }).addTo(APP.map);
+
+  // Extend existing bounds to include tribal boundary
+  const bounds = APP.tribalLayer.getBounds();
+  if (APP.forestLayer) bounds.extend(APP.forestLayer.getBounds());
+  if (APP.userMarker) bounds.extend(APP.userMarker.getLatLng());
+  APP.map.fitBounds(bounds, { padding: [30, 30] });
+}
+
+// ============================================================
 // WEATHER.GOV API
 // ============================================================
 async function fetchWeatherData() {
@@ -1715,6 +1807,7 @@ function renderForestBanner() {
       acres ? `${Math.round(acres).toLocaleString()} acres` : '-- acres';
     document.getElementById('forestGACC').textContent = `GACC: ${gacc}`;
     banner.classList.add('visible');
+    renderTribalBanner();
     return;
   }
 
@@ -1729,10 +1822,34 @@ function renderForestBanner() {
     document.getElementById('forestGACC').textContent =
       ld.state ? `State: ${ld.state}` : '--';
     banner.classList.add('visible');
+    renderTribalBanner();
+    return;
+  }
+
+  // No forest or land data, but might still be on tribal land
+  if (APP.tribalData) {
+    document.getElementById('forestName').textContent = APP.tribalData.name;
+    document.getElementById('forestRegion').textContent = 'Tribal Territory';
+    document.getElementById('forestAcres').textContent =
+      APP.tribalData.acres ? `${APP.tribalData.acres.toLocaleString()} acres` : '-- acres';
+    document.getElementById('forestGACC').textContent = '';
+    banner.classList.add('visible');
     return;
   }
 
   banner.classList.remove('visible');
+}
+
+function renderTribalBanner() {
+  const el = document.getElementById('tribalBanner');
+  if (!APP.tribalData) {
+    el.style.display = 'none';
+    return;
+  }
+  document.getElementById('tribalName').textContent = APP.tribalData.name;
+  document.getElementById('tribalAcres').textContent =
+    APP.tribalData.acres ? `${APP.tribalData.acres.toLocaleString()} acres` : '';
+  el.style.display = 'block';
 }
 
 // -- RED FLAG ALERTS --
@@ -2176,25 +2293,27 @@ function renderFireIndices() {
 
   const tbody = document.getElementById('indicesTable');
   const indices = [
-    { name: 'Relative Humidity', key: 'relativeHumidity', unit: '%', threshold: 25 },
-    { name: 'Wind Speed', key: 'windSpeed', unit: 'km/h', threshold: null },
-    { name: 'Wind Gust', key: 'windGust', unit: 'km/h', threshold: null },
-    { name: 'Transport Wind', key: 'transportWindSpeed', unit: 'm/s', threshold: null },
-    { name: 'Mixing Height', key: 'mixingHeight', unit: 'm', threshold: null },
-    { name: 'Haines Index', key: 'hainesIndex', unit: '', threshold: 5 },
-    { name: 'Grassland Fire Danger', key: 'grasslandFireDangerIndex', unit: '', threshold: null },
-    { name: 'Davis Stability', key: 'davisStabilityIndex', unit: '', threshold: null },
+    { name: 'Relative Humidity', key: 'relativeHumidity', unit: '%', threshold: 25, convert: null },
+    { name: 'Wind Speed', key: 'windSpeed', unit: 'mph', threshold: null, convert: 0.621371 },
+    { name: 'Wind Gust', key: 'windGust', unit: 'mph', threshold: null, convert: 0.621371 },
+    { name: 'Transport Wind', key: 'transportWindSpeed', unit: 'mph', threshold: null, convert: 2.23694 },
+    { name: 'Mixing Height', key: 'mixingHeight', unit: 'ft', threshold: null, convert: 3.28084 },
+    { name: 'Haines Index', key: 'hainesIndex', unit: '', threshold: 5, convert: null },
+    { name: 'Grassland Fire Danger', key: 'grasslandFireDangerIndex', unit: '', threshold: null, convert: null },
+    { name: 'Davis Stability', key: 'davisStabilityIndex', unit: '', threshold: null, convert: null },
   ];
 
   tbody.innerHTML = indices.map(idx => {
-    const val = getCurrentValue(grid[idx.key]);
+    let val = getCurrentValue(grid[idx.key]);
     if (val === null) return '';
-    const displayVal = `${Math.round(val * 100) / 100} ${idx.unit}`;
+    if (idx.convert) val = val * idx.convert;
+    const displayVal = `${Math.round(val)} ${idx.unit}`;
 
-    // Get previous value for trend
-    const prevVal = getPreviousValue(grid[idx.key]);
+    // Get previous value for trend (apply same unit conversion)
+    let prevVal = getPreviousValue(grid[idx.key]);
     let trend = '--';
     if (prevVal !== null) {
+      if (idx.convert) prevVal = prevVal * idx.convert;
       const diff = val - prevVal;
       if (Math.abs(diff) < 0.5) trend = '\u2192 Steady';
       else if (diff > 0) trend = `\u2191 +${Math.round(diff)}`;

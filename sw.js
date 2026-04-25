@@ -42,7 +42,8 @@ self.addEventListener('fetch', event => {
   if (url.hostname === 'api.weather.gov' ||
       url.hostname === 'apps.fs.usda.gov' ||
       url.hostname === 'fsapps.nwcg.gov' ||
-      url.hostname === 'gis.blm.gov') {
+      url.hostname === 'gis.blm.gov' ||
+      url.hostname === 'tigerweb.geo.census.gov') {
     event.respondWith(fetch(event.request));
     return;
   }
