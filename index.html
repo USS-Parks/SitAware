@@ -13,7 +13,7 @@
   script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
   style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
   img-src 'self' https://*.tile.openstreetmap.org https://cdnjs.cloudflare.com data:;
-  connect-src https://api.weather.gov https://apps.fs.usda.gov https://fsapps.nwcg.gov https://gis.blm.gov https://tigerweb.geo.census.gov;
+  connect-src https://api.weather.gov https://apps.fs.usda.gov https://services9.arcgis.com https://fsapps.nwcg.gov https://gis.blm.gov https://tigerweb.geo.census.gov;
   manifest-src 'self';
   worker-src 'self';
   font-src 'self';
@@ -927,6 +927,112 @@ body.light-mode #map-container {
         <option value="45.5,-122.7">Forest Park, Portland, OR</option>
         <option value="47.6,-122.3">Washington State Parks - Central</option>
       </optgroup>
+      <optgroup label="California Tribal Territories">
+        <option value="41.3809,-123.905">Yurok Reservation</option>
+        <option value="41.0934,-123.6734">Hoopa Valley Reservation</option>
+        <option value="41.8009,-123.3767">Karuk Reservation</option>
+        <option value="40.8834,-123.998">Blue Lake Rancheria</option>
+        <option value="41.1643,-124.1208">Big Lagoon Rancheria</option>
+        <option value="41.0542,-124.1305">Trinidad Rancheria</option>
+        <option value="40.6907,-124.2522">Table Bluff Reservation</option>
+        <option value="41.5145,-124.0166">Resighini Rancheria</option>
+        <option value="41.7603,-124.1565">Elk Valley Rancheria</option>
+        <option value="41.9554,-124.2064">Smith River Rancheria</option>
+        <option value="41.6115,-122.9724">Quartz Valley Reservation</option>
+        <option value="39.8642,-123.1884">Round Valley Reservation</option>
+        <option value="36.0453,-118.7302">Tule River Reservation</option>
+        <option value="33.9529,-116.8078">Morongo Reservation</option>
+        <option value="33.7877,-116.532">Agua Caliente Indian Reservation</option>
+        <option value="33.3614,-117.049">Pala Reservation</option>
+        <option value="33.4403,-117.048">Pechanga Reservation</option>
+        <option value="33.2648,-116.959">Rincon Reservation</option>
+        <option value="33.7741,-116.8807">Soboba Reservation</option>
+        <option value="33.5202,-116.7118">Cahuilla Reservation</option>
+        <option value="34.1558,-117.2193">San Manuel Reservation</option>
+        <option value="34.5406,-114.4085">Chemehuevi Reservation</option>
+        <option value="33.9391,-114.3881">Colorado River Indian Reservation</option>
+        <option value="34.9383,-114.6145">Fort Mojave Reservation</option>
+        <option value="32.7966,-114.6762">Fort Yuma Indian Reservation</option>
+        <option value="33.3462,-116.0202">Torres-Martinez Reservation</option>
+        <option value="33.2977,-116.556">Los Coyotes Reservation</option>
+        <option value="33.555,-116.5284">Santa Rosa Reservation</option>
+        <option value="33.1837,-116.6586">Santa Ysabel Reservation</option>
+        <option value="34.6027,-120.0914">Santa Ynez Reservation</option>
+        <option value="32.9558,-116.8436">Barona Reservation</option>
+        <option value="32.6736,-116.3633">Campo Indian Reservation</option>
+        <option value="32.923,-116.7545">Capitan Grande Reservation</option>
+        <option value="32.8501,-116.6926">Viejas Reservation</option>
+        <option value="32.7795,-116.8326">Sycuan Reservation</option>
+        <option value="33.265,-116.8497">La Jolla Reservation</option>
+        <option value="33.3632,-116.9551">Pauma and Yuima Reservation</option>
+        <option value="33.2112,-116.9627">San Pasqual Reservation</option>
+        <option value="33.0105,-116.6416">Inaja and Cosmit Reservation</option>
+        <option value="33.0932,-116.7424">Mesa Grande Reservation</option>
+        <option value="32.7547,-116.3461">Manzanita Reservation</option>
+        <option value="32.7345,-116.3912">La Posta Indian Reservation</option>
+        <option value="32.8416,-116.3856">Ewiiaapaayp Reservation</option>
+        <option value="32.7027,-116.8709">Jamul Indian Village</option>
+        <option value="33.6877,-116.1688">Cabazon Reservation</option>
+        <option value="33.6499,-116.1912">Augustine Reservation</option>
+        <option value="33.7106,-116.1877">Twenty-Nine Palms Reservation</option>
+        <option value="33.6064,-116.7029">Ramona Village</option>
+        <option value="37.4456,-117.5247">Timbi-Sha Shoshone Reservation</option>
+        <option value="39.2535,-122.0244">Colusa Rancheria</option>
+        <option value="39.0183,-122.2904">Cortina Indian Rancheria</option>
+        <option value="38.7381,-122.1325">Rumsey Indian Rancheria</option>
+        <option value="39.8674,-122.2273">Paskenta Rancheria</option>
+        <option value="39.6727,-122.5176">Grindstone Indian Rancheria</option>
+        <option value="39.0204,-122.8871">Big Valley Rancheria</option>
+        <option value="39.1399,-122.8807">Robinson Rancheria</option>
+        <option value="39.0086,-122.6708">Sulphur Bank Rancheria</option>
+        <option value="39.1853,-122.9192">Upper Lake Rancheria</option>
+        <option value="38.7287,-122.6258">Middletown Rancheria</option>
+        <option value="39.2542,-123.2089">Coyote Valley Reservation</option>
+        <option value="39.1654,-123.1699">Guidiville Rancheria</option>
+        <option value="39.1802,-123.2178">Pinoleville Rancheria</option>
+        <option value="39.2902,-123.1797">Redwood Valley Rancheria</option>
+        <option value="38.7025,-122.8565">Dry Creek Rancheria</option>
+        <option value="38.9996,-123.0384">Hopland Rancheria</option>
+        <option value="39.6693,-123.5007">Laytonville Rancheria</option>
+        <option value="39.5371,-123.4883">Sherwood Valley Rancheria</option>
+        <option value="38.9357,-123.6826">Manchester-Point Arena Rancheria</option>
+        <option value="38.6566,-123.339">Stewarts Point Rancheria</option>
+        <option value="37.9526,-122.3344">Lytton Rancheria</option>
+        <option value="40.5101,-122.3846">Redding Rancheria</option>
+        <option value="40.8342,-121.9157">Montgomery Creek Rancheria</option>
+        <option value="40.8933,-121.9535">Roaring Creek Rancheria</option>
+        <option value="41.0264,-121.9189">Big Bend Rancheria</option>
+        <option value="41.2139,-121.0934">Lookout Rancheria</option>
+        <option value="41.2048,-120.4788">Likely Rancheria</option>
+        <option value="41.4777,-120.5244">Alturas Indian Rancheria</option>
+        <option value="41.5262,-120.1837">Cedarville Rancheria</option>
+        <option value="41.8595,-120.1968">Fort Bidwell Reservation</option>
+        <option value="41.5511,-120.453">XL Ranch Rancheria</option>
+        <option value="40.4443,-120.6445">Susanville Indian Rancheria</option>
+        <option value="40.1488,-120.8934">Greenville Rancheria</option>
+        <option value="39.4671,-121.5197">Mooretown Rancheria</option>
+        <option value="39.6256,-121.3279">Berry Creek Rancheria</option>
+        <option value="39.5616,-121.3555">Enterprise Rancheria</option>
+        <option value="38.8404,-121.3148">Auburn Rancheria</option>
+        <option value="38.6967,-120.9049">Shingle Springs Rancheria</option>
+        <option value="38.3849,-120.7226">Jackson Rancheria</option>
+        <option value="37.9273,-120.4534">Chicken Ranch Rancheria</option>
+        <option value="37.9808,-120.2379">Tuolumne Rancheria</option>
+        <option value="37.366,-118.4227">Bishop Reservation</option>
+        <option value="37.159,-118.2851">Big Pine Reservation</option>
+        <option value="37.793,-118.5209">Benton Paiute Reservation</option>
+        <option value="38.2665,-119.2156">Bridgeport Reservation</option>
+        <option value="36.597,-118.056">Lone Pine Reservation</option>
+        <option value="36.8411,-118.2289">Fort Independence Reservation</option>
+        <option value="37.083,-119.4644">Big Sandy Rancheria</option>
+        <option value="37.2275,-119.5135">North Fork Rancheria</option>
+        <option value="37.212,-119.6956">Picayune Rancheria</option>
+        <option value="36.985,-119.6397">Table Mountain Rancheria</option>
+        <option value="36.9716,-119.3242">Cold Springs Rancheria</option>
+        <option value="36.2361,-119.7551">Santa Rosa Rancheria</option>
+        <option value="33.1558,-117.2193">San Manuel Reservation</option>
+        <option value="38.8005,-119.7942">Woodfords Community</option>
+      </optgroup>
     </select>
     <button class="manual-loc-btn secondary" onclick="toggleManualPanel()">Cancel</button>
   </div>
@@ -1139,7 +1245,9 @@ const APP = {
   notificationsEnabled: false,
 
   // USFS ArcGIS endpoint for National Forest boundaries
-  USFS_URL: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_ForestSystemBoundaries_01/MapServer/0/query',
+  // Primary: ArcGIS Online mirror (apps.fs.usda.gov was returning 500s as of April 2026)
+  USFS_URL: 'https://services9.arcgis.com/5rkKDrGuFJxI7V5b/arcgis/rest/services/S_USA_AdministrativeForest/FeatureServer/0/query',
+  USFS_FALLBACK_URL: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_ForestSystemBoundaries_01/MapServer/0/query',
 
   // Census TIGERweb - Federal American Indian Reservations
   TRIBAL_URL: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2023/MapServer',
@@ -1400,7 +1508,8 @@ function clearLocationError() {
 // LAND BOUNDARY QUERIES (USFS + BLM SMA)
 // ============================================================
 async function fetchForestData() {
-  // Query USFS first for National Forest boundaries
+  // Query USFS for National Forest boundaries
+  // Uses ArcGIS Online mirror as primary, with USFS direct as fallback
   const geom = JSON.stringify({
     x: APP.userLon,
     y: APP.userLat,
@@ -1411,36 +1520,49 @@ async function fetchForestData() {
     geometry: geom,
     geometryType: 'esriGeometryPoint',
     spatialRel: 'esriSpatialRelIntersects',
-    outFields: 'FORESTNAME,FORESTNUMBER,GIS_ACRES,REGION',
+    outFields: 'FORESTNAME,FORESTNUMB,FORESTNUMBER,GIS_ACRES,REGION',
     returnGeometry: 'true',
     outSR: '4326',
     maxAllowableOffset: '0.005',
+    inSR: '4326',
     f: 'geojson'
   });
 
-  try {
-    const resp = await fetch(`${APP.USFS_URL}?${params}`);
-    if (!resp.ok) throw new Error(`USFS API returned ${resp.status}`);
-    const data = await resp.json();
+  // Try primary endpoint, then fallback
+  const endpoints = [APP.USFS_URL, APP.USFS_FALLBACK_URL];
 
-    if (data.features && data.features.length > 0) {
-      APP.forestData = data.features[0];
-      APP.landData = null; // On USFS land, no need for SMA fallback
-      drawForestBoundary(data.features[0]);
-    } else {
-      // Not in a National Forest -- try BLM/State/other federal lands
-      APP.forestData = null;
-      await fetchSMALandData();
-      // If still no land data, try nearest USFS forest
-      if (!APP.landData) {
-        await findNearestForest();
+  for (const endpoint of endpoints) {
+    try {
+      const resp = await fetch(`${endpoint}?${params}`);
+      if (!resp.ok) {
+        console.warn(`USFS endpoint returned ${resp.status}: ${endpoint}`);
+        continue;
       }
+      const data = await resp.json();
+
+      if (data.features && data.features.length > 0) {
+        const feature = data.features[0];
+        // Normalize field names across endpoints (FORESTNUMB vs FORESTNUMBER)
+        const p = feature.properties;
+        if (p.FORESTNUMB && !p.FORESTNUMBER) p.FORESTNUMBER = p.FORESTNUMB;
+        if (p.FORESTNUMBER && !p.FORESTNUMB) p.FORESTNUMB = p.FORESTNUMBER;
+
+        APP.forestData = feature;
+        APP.landData = null;
+        drawForestBoundary(feature);
+        return; // Success - stop trying endpoints
+      }
+    } catch (err) {
+      console.warn(`USFS endpoint failed: ${endpoint}`, err.message || err);
+      continue;
     }
-  } catch (err) {
-    console.error('USFS query error:', err);
-    APP.forestData = null;
-    // Fall back to SMA even if USFS fails
-    await fetchSMALandData();
+  }
+
+  // Neither endpoint returned a forest - try BLM/State/other federal lands
+  APP.forestData = null;
+  await fetchSMALandData();
+  if (!APP.landData) {
+    await findNearestForest();
   }
 }
 
@@ -1509,25 +1631,32 @@ async function findNearestForest() {
     geometry: geom,
     geometryType: 'esriGeometryEnvelope',
     spatialRel: 'esriSpatialRelIntersects',
-    outFields: 'FORESTNAME,FORESTNUMBER,GIS_ACRES,REGION',
+    outFields: 'FORESTNAME,FORESTNUMB,FORESTNUMBER,GIS_ACRES,REGION',
     returnGeometry: 'true',
     outSR: '4326',
     maxAllowableOffset: '0.005',
+    inSR: '4326',
     f: 'geojson',
     resultRecordCount: '5'
   });
 
-  try {
-    const resp = await fetch(`${APP.USFS_URL}?${params}`);
-    if (!resp.ok) throw new Error(`USFS nearest query returned ${resp.status}`);
-    const data = await resp.json();
-    if (data.features && data.features.length > 0) {
-      APP.forestData = data.features[0];
-      APP.forestData.properties._nearby = true;
-      // Do NOT draw boundary for nearby forests -- only when user is actually inside one
+  const endpoints = [APP.USFS_URL, APP.USFS_FALLBACK_URL];
+  for (const endpoint of endpoints) {
+    try {
+      const resp = await fetch(`${endpoint}?${params}`);
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      if (data.features && data.features.length > 0) {
+        APP.forestData = data.features[0];
+        // Normalize field names
+        const p = APP.forestData.properties;
+        if (p.FORESTNUMB && !p.FORESTNUMBER) p.FORESTNUMBER = p.FORESTNUMB;
+        APP.forestData.properties._nearby = true;
+        return;
+      }
+    } catch (err) {
+      console.warn('Nearest forest query failed:', endpoint, err.message || err);
     }
-  } catch (err) {
-    console.error('Nearest forest query error:', err);
   }
 }
 

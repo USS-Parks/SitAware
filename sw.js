@@ -1,7 +1,7 @@
 // Swivel-Head Pro Service Worker
 // Handles offline caching and notification scheduling
 
-const CACHE_NAME = 'swivel-head-v3';
+const CACHE_NAME = 'swivel-head-v4';
 const CACHE_URLS = [
   './index.html',
   './manifest.json',
@@ -42,6 +42,7 @@ self.addEventListener('fetch', event => {
   // API calls - always network
   if (url.hostname === 'api.weather.gov' ||
       url.hostname === 'apps.fs.usda.gov' ||
+      url.hostname === 'services9.arcgis.com' ||
       url.hostname === 'fsapps.nwcg.gov' ||
       url.hostname === 'gis.blm.gov' ||
       url.hostname === 'tigerweb.geo.census.gov') {
