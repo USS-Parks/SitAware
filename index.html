@@ -230,228 +230,24 @@ html, body {
   display: none;
 }
 .map-coords.visible { display: block; }
-.locate-btn {
+.map-tap-hint {
   position: absolute;
   bottom: 12px;
-  right: 12px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 500;
-  background: var(--forest-light);
-  color: white;
+  background: rgba(30,42,34,0.9);
+  color: var(--cream);
   border: none;
   border-radius: 50px;
-  padding: 12px 20px;
-  font-size: 14px;
-  cursor: pointer;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 500;
   box-shadow: var(--shadow-lg);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.2s;
+  pointer-events: none;
 }
-.locate-btn:hover { background: var(--forest-mid); transform: translateY(-1px); }
-.locate-btn:active { transform: translateY(0); }
-.locate-btn.loading { pointer-events: none; opacity: 0.8; }
-.locate-btn .spinner {
-  display: none;
-  width: 18px;
-  height: 18px;
-  border: 2px solid rgba(255,255,255,0.3);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-.locate-btn.loading .spinner { display: block; }
-.locate-btn.loading .btn-icon { display: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ============================================================
-   LOCATION PANEL (replaces old manual-loc + forest dropdown)
-   ============================================================ */
-.loc-panel {
-  position: absolute;
-  bottom: 60px;
-  left: 12px;
-  right: 12px;
-  z-index: 500;
-  background: white;
-  color: var(--black);
-  border-radius: var(--radius);
-  padding: 16px;
-  box-shadow: var(--shadow-lg);
-  display: none;
-  max-height: 70vh;
-  overflow-y: auto;
-}
-.loc-panel.visible { display: block; }
-.loc-panel-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--forest-mid);
-  margin-bottom: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.loc-panel-close {
-  position: absolute;
-  top: 10px;
-  right: 12px;
-  background: none;
-  border: none;
-  font-size: 20px;
-  color: #999;
-  cursor: pointer;
-  padding: 4px 8px;
-  line-height: 1;
-}
-.loc-panel-close:hover { color: var(--black); }
-.loc-coord-row {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.loc-input {
-  flex: 1;
-  padding: 10px 12px;
-  border: 1px solid var(--cream-dark);
-  border-radius: var(--radius-xs);
-  font-size: 14px;
-  font-family: var(--font);
-  background: #fafaf5;
-  color: var(--black);
-  min-height: 44px;
-}
-.loc-input:focus {
-  outline: none;
-  border-color: var(--forest-mid);
-}
-.loc-btn {
-  width: 100%;
-  padding: 12px;
-  border: none;
-  border-radius: var(--radius-xs);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: var(--font);
-  transition: all 0.2s;
-  min-height: 44px;
-}
-.loc-btn-primary {
-  background: var(--forest-mid);
-  color: white;
-}
-.loc-btn-primary:hover { background: var(--forest-dark); }
-.loc-btn-secondary {
-  background: #fafaf5;
-  color: var(--forest-mid);
-  border: 1px solid var(--cream-dark);
-  margin-top: 6px;
-}
-.loc-btn-secondary:hover { background: var(--cream-dark); }
-.loc-divider {
-  text-align: center;
-  font-size: 11px;
-  color: #999;
-  margin: 12px 0;
-  position: relative;
-}
-.loc-divider::before, .loc-divider::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  width: 38%;
-  height: 1px;
-  background: var(--cream-dark);
-}
-.loc-divider::before { left: 0; }
-.loc-divider::after { right: 0; }
-.loc-select {
-  width: 100%;
-  padding: 10px 12px;
-  background: var(--bg);
-  color: var(--text);
-  border: 1px solid var(--surface-border);
-  border-radius: var(--radius-xs);
-  font-size: 13px;
-  cursor: pointer;
-  appearance: auto;
-}
-.loc-error {
-  background: var(--red-flag-bg);
-  color: var(--red-flag);
-  padding: 10px 14px;
-  border-radius: var(--radius-xs);
-  font-size: 13px;
-  margin-bottom: 10px;
-  display: none;
-  line-height: 1.4;
-}
-.loc-error.visible { display: block; }
-
-/* Searchable location filter */
-.loc-search {
-  position: relative;
-  margin-bottom: 8px;
-}
-.loc-search-input {
-  width: 100%;
-  padding: 10px 12px 10px 34px;
-  border: 1px solid var(--cream-dark);
-  border-radius: var(--radius-xs);
-  font-size: 14px;
-  font-family: var(--font);
-  background: #fafaf5;
-  color: var(--black);
-  min-height: 44px;
-}
-.loc-search-input:focus {
-  outline: none;
-  border-color: var(--forest-mid);
-}
-.loc-search-icon {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
-  color: #999;
-}
-.loc-results {
-  max-height: 200px;
-  overflow-y: auto;
-  border: 1px solid var(--cream-dark);
-  border-radius: var(--radius-xs);
-  display: none;
-}
-.loc-results.visible { display: block; }
-.loc-result-item {
-  padding: 10px 12px;
-  font-size: 13px;
-  cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid #f0ede4;
-  min-height: 44px;
-}
-.loc-result-item:last-child { border-bottom: none; }
-.loc-result-item:hover { background: #f5f3ed; }
-.loc-result-name { font-weight: 500; color: var(--black); }
-.loc-result-dist { font-size: 11px; color: #999; }
-.loc-result-type {
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 3px;
-  background: #f0ede4;
-  color: #666;
-}
-.loc-radius-note {
-  font-size: 11px;
-  color: #999;
-  text-align: center;
-  margin-top: 6px;
-}
 
 /* ============================================================
    LAYOUT: CONTENT AREA + TWO-COLUMN DESKTOP
@@ -1078,38 +874,7 @@ body.light-mode .skeleton {
 <div id="map-container">
   <div id="map" role="application" aria-label="Interactive map"></div>
   <div class="map-coords" id="mapCoords" aria-live="polite"></div>
-  <button class="locate-btn" id="locateBtn" aria-label="Find my location">
-    <span class="btn-icon">&#x1F4CD;</span>
-    <span class="btn-text">Locate Me</span>
-    <span class="spinner"></span>
-  </button>
-
-  <!-- LOCATION PANEL -->
-  <div class="loc-panel" id="locPanel" aria-label="Set location manually">
-    <button class="loc-panel-close" id="locPanelClose" aria-label="Close location panel">&times;</button>
-    <div class="loc-panel-title">Set location</div>
-    <div class="loc-error" id="locError" role="alert"></div>
-    <div class="loc-coord-row">
-      <input type="text" class="loc-input" id="manualLat" placeholder="Latitude (e.g. 40.9)" inputmode="decimal" aria-label="Latitude">
-      <input type="text" class="loc-input" id="manualLon" placeholder="Longitude (e.g. -123.5)" inputmode="decimal" aria-label="Longitude">
-    </div>
-    <button class="loc-btn loc-btn-primary" id="goCoords">Go to coordinates</button>
-    <div class="loc-divider">or select a public land area</div>
-    <select class="loc-select" id="forestSelect" aria-label="Choose a public land area">
-      <option value="">-- Choose a Public Land Area --</option>
-    </select>
-    <div class="loc-radius-note" id="locRadiusNote"></div>
-    <div class="loc-divider">or search all areas</div>
-    <div class="loc-search">
-      <svg class="loc-search-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-        <circle cx="6.5" cy="6.5" r="5" stroke="#999" stroke-width="1.5" fill="none"/>
-        <line x1="10" y1="10" x2="15" y2="15" stroke="#999" stroke-width="1.5"/>
-      </svg>
-      <input type="text" class="loc-search-input" id="locSearchInput" placeholder="Search forests, reservations, BLM areas..." aria-label="Search locations">
-    </div>
-    <div class="loc-results" id="locResults" role="listbox" aria-label="Nearby locations"></div>
-    <button class="loc-btn loc-btn-secondary" id="locPanelCancel">Cancel</button>
-  </div>
+  <div class="map-tap-hint" id="mapTapHint">&#x1F4CD; Tap the map to set your location</div>
 </div>
 
 <!-- LOADING OVERLAY -->
@@ -1127,8 +892,7 @@ body.light-mode .skeleton {
   <div class="empty-state" id="emptyState">
     <div class="es-icon"><img src="icon-512.png" width="180" height="180" alt="Swivel-Head Pro"></div>
     <h3>Welcome to Swivel-Head Pro</h3>
-    <p>Finding your location automatically...</p>
-    <p style="margin-top:12px;font-size:13px;color:rgba(240,237,228,0.5);">GPS not working? Tap the map to drop a pin, or use the manual entry panel.</p>
+    <p>Tap anywhere on the map above to get wildfire situational awareness for your area.</p>
   </div>
 
   <!-- DATA PANELS (hidden until data loads) -->
@@ -1655,7 +1419,7 @@ function initMap() {
   if (typeof L === 'undefined') {
     APP.mapAvailable = false;
     const container = document.getElementById('map');
-    container.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:var(--cream-dark);color:var(--black);text-align:center;padding:20px;"><div style="font-size:14px;font-weight:600;color:var(--forest-mid);margin-bottom:6px;">Map unavailable</div><div style="font-size:12px;color:#888;max-width:260px;line-height:1.4;">Use the search or enter coordinates below.</div></div>';
+    container.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:var(--cream-dark);color:var(--black);text-align:center;padding:20px;"><div style="font-size:14px;font-weight:600;color:var(--forest-mid);margin-bottom:6px;">Map unavailable</div><div style="font-size:12px;color:#888;max-width:260px;line-height:1.4;">Map could not load in this browser.</div></div>';
     return;
   }
   try {
@@ -1757,9 +1521,9 @@ async function loadLocationData(lat, lon) {
     }).addTo(APP.map).bindPopup(`${lat.toFixed(4)}, ${lon.toFixed(4)}`);
   }
 
-  // Update location filter and dropdown with nearby results
-  updateLocationFilter();
-  populateForestDropdown();
+  // Hide the map tap hint once location is set
+  const hint = document.getElementById('mapTapHint');
+  if (hint) hint.style.display = 'none';
 
   try {
     await Promise.all([fetchForestData(), fetchTribalData()]);
@@ -2636,21 +2400,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initMap();
   enableMapClick();
 
-  // Location panel
-  document.getElementById('locateBtn').addEventListener('click', geolocateUser);
-  document.getElementById('locPanelClose').addEventListener('click', toggleLocPanel);
-  document.getElementById('locPanelCancel').addEventListener('click', toggleLocPanel);
-  document.getElementById('goCoords').addEventListener('click', useManualCoords);
-
-  // Forest dropdown
-  document.getElementById('forestSelect').addEventListener('change', useSelectedForest);
-  populateForestDropdown();
-
-  // Location search
-  document.getElementById('locSearchInput').addEventListener('input', function() {
-    filterLocationsBySearch(this.value);
-  });
-
   // Toggles
   document.getElementById('themeToggle').addEventListener('click', toggleTheme);
 
@@ -2667,11 +2416,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Auto-show manual panel if map not available
-  if (!APP.mapAvailable) {
-    document.getElementById('locPanel').classList.add('visible');
-  }
-
   // Set initial toggle states
   document.getElementById('themeToggle').setAttribute('aria-checked', 'true');
 
@@ -2681,48 +2425,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const proGrid = document.getElementById('metricGridPro');
   if (proGrid) proGrid.style.display = 'grid';
 
-  // Auto-geolocate on page load - no tap required
-  geolocateUser();
-});
-</script>
-</body>
-</html>
-put', function() {
-    filterLocationsBySearch(this.value);
-  });
-
-  // Toggles
-  document.getElementById('themeToggle').addEventListener('click', toggleTheme);
-
-  // Keyboard support for toggle
-  document.getElementById('themeToggle').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.click(); }
-  });
-
-  // Error retry
-  document.getElementById('errorRetry').addEventListener('click', () => {
-    if (APP.userLat !== null && APP.userLon !== null) {
-      hideErrorBanner();
-      loadLocationData(APP.userLat, APP.userLon);
-    }
-  });
-
-  // Auto-show manual panel if map not available
-  if (!APP.mapAvailable) {
-    document.getElementById('locPanel').classList.add('visible');
-  }
-
-  // Set initial toggle states
-  document.getElementById('themeToggle').setAttribute('aria-checked', 'true');
-
-  // Pro mode starts enabled (matching original default)
-  APP.proMode = true;
-  document.body.classList.add('pro-mode');
-  const proGrid = document.getElementById('metricGridPro');
-  if (proGrid) proGrid.style.display = 'grid';
-
-  // Auto-geolocate on page load - no tap required
-  geolocateUser();
 });
 </script>
 </body>
