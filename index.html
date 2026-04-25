@@ -245,6 +245,15 @@ html, body {
   font-weight: 500;
   box-shadow: var(--shadow-lg);
   pointer-events: none;
+  transition: all 0.3s;
+}
+.map-tap-hint.pulse {
+  background: var(--forest-light);
+  animation: hintPulse 2s ease-in-out infinite;
+}
+@keyframes hintPulse {
+  0%, 100% { box-shadow: 0 2px 8px rgba(46,94,62,0.3); }
+  50% { box-shadow: 0 2px 20px rgba(46,94,62,0.6); }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -892,8 +901,7 @@ body.light-mode .skeleton {
   <div class="empty-state" id="emptyState">
     <div class="es-icon"><img src="icon-512.png" width="180" height="180" alt="Swivel-Head Pro"></div>
     <h3>Welcome to Swivel-Head Pro</h3>
-    <p>Finding your location...</p>
-    <p style="margin-top:12px;font-size:13px;color:rgba(240,237,228,0.5);">If GPS is unavailable, tap anywhere on the map to set your location.</p>
+    <p id="emptyMsg">Finding your location...</p>
   </div>
 
   <!-- DATA PANELS (hidden until data loads) -->
@@ -1442,8 +1450,16 @@ async function geolocateUser() {
   const inIframe = window.self !== window.top;
   const onForeignHost = window.location.hostname.includes('claudeusercontent.com');
 
-  // If GPS isn't possible, just show the map tap hint
+  function gpsFailFallback() {
+    const msg = document.getElementById('emptyMsg');
+    if (msg) msg.textContent = 'Tap anywhere on the map to get started.';
+    const hint = document.getElementById('mapTapHint');
+    if (hint) hint.classList.add('pulse');
+  }
+
+  // If GPS isn't possible, go straight to map tap
   if (!navigator.geolocation || onForeignHost || (inIframe && window.isSecureContext === false) || window.isSecureContext === false) {
+    gpsFailFallback();
     return;
   }
 
@@ -1457,9 +1473,9 @@ async function geolocateUser() {
     });
     await loadLocationData(pos.coords.latitude, pos.coords.longitude);
   } catch (err) {
-    // GPS failed silently - map tap hint is already visible as fallback
     console.log('GPS unavailable, use map tap:', err.message || err);
     hideLoading();
+    gpsFailFallback();
   }
 }
 
