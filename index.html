@@ -8,7 +8,21 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Swivel-Head Pro - Wildfire Situational Awareness</title>
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'none';
+  script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
+  style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
+  img-src 'self' https://*.tile.openstreetmap.org https://cdnjs.cloudflare.com data:;
+  connect-src https://api.weather.gov https://apps.fs.usda.gov https://fsapps.nwcg.gov https://gis.blm.gov https://tigerweb.geo.census.gov;
+  manifest-src 'self';
+  worker-src 'self';
+  font-src 'self';
+  frame-src 'none';
+  object-src 'none';
+  base-uri 'self';">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
+  integrity="sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw=="
+  crossorigin="anonymous" referrerpolicy="no-referrer"/>
 <style>
 :root {
   --orange: #D4702A;
@@ -1085,12 +1099,12 @@ body.light-mode #map-container {
 
     <!-- DATA SOURCES -->
     <div class="source-note">
-      Data sourced from <a href="https://weather.gov" target="_blank">weather.gov</a>,
-      <a href="https://apps.fs.usda.gov" target="_blank">USFS</a>,
-      <a href="https://gis.blm.gov" target="_blank">BLM</a>,
-      <a href="https://gacc.nifc.gov" target="_blank">GACC/NIFC</a>,
-      <a href="https://fsapps.nwcg.gov" target="_blank">NWCG</a>, and
-      <a href="https://tigerweb.geo.census.gov" target="_blank">Census TIGERweb</a><br>
+      Data sourced from <a href="https://weather.gov" target="_blank" rel="noopener noreferrer">weather.gov</a>,
+      <a href="https://apps.fs.usda.gov" target="_blank" rel="noopener noreferrer">USFS</a>,
+      <a href="https://gis.blm.gov" target="_blank" rel="noopener noreferrer">BLM</a>,
+      <a href="https://gacc.nifc.gov" target="_blank" rel="noopener noreferrer">GACC/NIFC</a>,
+      <a href="https://fsapps.nwcg.gov" target="_blank" rel="noopener noreferrer">NWCG</a>, and
+      <a href="https://tigerweb.geo.census.gov" target="_blank" rel="noopener noreferrer">Census TIGERweb</a><br>
       <span style="display:block;margin:8px 0;font-size:12px;color:rgba(253,245,230,0.75);font-weight:600;">Designed and Created by Basho Parks &mdash; 2026</span>
       Last updated: <span id="lastUpdated">--</span>
     </div>
@@ -1098,7 +1112,9 @@ body.light-mode #map-container {
   </div><!-- /dataPanels -->
 </div><!-- /content -->
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"
+  integrity="sha512-puJW3E/qXDqYp9IfhAI54BJEaWIfloJ7JWs7OeD5i6ruC9JZL1gERT1wjtwXFlh7CjE7ZJ+/vcRZRkIYIb6p4g=="
+  crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
 // ============================================================
 // SWIVEL-HEAD PRO - CORE APPLICATION
@@ -1641,16 +1657,24 @@ async function fetchWeatherData() {
     };
 
     // Step 2: Get forecast (with retry - weather.gov sometimes 500s)
-    const fcstResp = await fetchWithRetry(props.forecast);
-    if (fcstResp.ok) APP.forecastData = await fcstResp.json();
+    // Validate all API-returned URLs to prevent open redirect/SSRF
+    const trustedPrefix = 'https://api.weather.gov/';
+    if (props.forecast && props.forecast.startsWith(trustedPrefix)) {
+      const fcstResp = await fetchWithRetry(props.forecast);
+      if (fcstResp.ok) APP.forecastData = await fcstResp.json();
+    }
 
     // Step 3: Get hourly forecast
-    const hourlyResp = await fetchWithRetry(props.forecastHourly);
-    if (hourlyResp.ok) APP.hourlyData = await hourlyResp.json();
+    if (props.forecastHourly && props.forecastHourly.startsWith(trustedPrefix)) {
+      const hourlyResp = await fetchWithRetry(props.forecastHourly);
+      if (hourlyResp.ok) APP.hourlyData = await hourlyResp.json();
+    }
 
     // Step 4: Get raw gridpoint data (RH, wind, dewpoint, etc.)
-    const gridResp = await fetchWithRetry(props.forecastGridData);
-    if (gridResp.ok) APP.gridData = await gridResp.json();
+    if (props.forecastGridData && props.forecastGridData.startsWith(trustedPrefix)) {
+      const gridResp = await fetchWithRetry(props.forecastGridData);
+      if (gridResp.ok) APP.gridData = await gridResp.json();
+    }
 
   } catch (err) {
     console.error('Weather fetch error:', err);
@@ -1971,7 +1995,7 @@ function renderPAL() {
   document.getElementById('palProDetail').innerHTML = `
     <div style="font-size:12px;color:#888;margin-bottom:8px;font-style:italic;">
       PAL derived from weather.gov fire weather data. For official PAL, contact the local
-      National Forest dispatch or check <a href="https://fsapps.nwcg.gov" target="_blank">fsapps.nwcg.gov</a>.
+      National Forest dispatch or check <a href="https://fsapps.nwcg.gov" target="_blank" rel="noopener noreferrer">fsapps.nwcg.gov</a>.
     </div>
     <div class="data-row">
       <span class="data-label">Calculated PAL</span>
@@ -2103,7 +2127,7 @@ function renderFirePotential() {
     </div>
     <div style="font-size:11px;color:#888;margin-top:8px;font-style:italic;">
       Source: NWCG National Predictive Services &middot;
-      <a href="https://fsapps.nwcg.gov/psp/npsg/forecast/#/outlooks" target="_blank" style="color:#A85318;">View full outlook</a>
+      <a href="https://fsapps.nwcg.gov/psp/npsg/forecast/#/outlooks" target="_blank" rel="noopener noreferrer" style="color:#A85318;">View full outlook</a>
     </div>
   `;
 }
@@ -2604,4 +2628,4 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+
