@@ -1,7 +1,7 @@
 // ForestWatch Service Worker
 // Handles offline caching and notification scheduling
 
-const CACHE_NAME = 'forestwatch-v1';
+const CACHE_NAME = 'forestwatch-v2';
 const CACHE_URLS = [
   './index.html',
   './manifest.json',
@@ -40,7 +40,8 @@ self.addEventListener('fetch', event => {
 
   // API calls - always network
   if (url.hostname === 'api.weather.gov' ||
-      url.hostname === 'apps.fs.usda.gov') {
+      url.hostname === 'apps.fs.usda.gov' ||
+      url.hostname === 'fsapps.nwcg.gov') {
     event.respondWith(fetch(event.request));
     return;
   }
@@ -70,8 +71,8 @@ self.addEventListener('push', event => {
   const title = data.title || 'ForestWatch Update';
   const options = {
     body: data.body || 'Check your daily fire weather conditions.',
-    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🔥</text></svg>',
-    badge: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🔥</text></svg>',
+    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">\uD83D\uDD25</text></svg>',
+    badge: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">\uD83D\uDD25</text></svg>',
     tag: 'forestwatch-daily',
     data: { url: './index.html' },
     actions: [
@@ -99,4 +100,7 @@ self.addEventListener('notificationclick', event => {
           return client.focus();
         }
       }
-      return clients.open
+      return clients.openWindow('./index.html');
+    })
+  );
+});
