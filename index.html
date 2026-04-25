@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#1E3D72">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>ForestWatch - Wildfire Situational Awareness</title>
+<title>Swivel-Head - Wildfire Situational Awareness</title>
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <style>
@@ -381,7 +381,7 @@ html, body {
 }
 .fp-day {
   flex: 1;
-  min-width: 60px;
+  min-width: 70px;
   text-align: center;
   padding: 10px 6px;
   border-radius: 8px;
@@ -397,8 +397,9 @@ html, body {
 }
 .fp-day .fp-code {
   font-weight: 800;
-  font-size: 18px;
+  font-size: 13px;
   margin: 4px 0;
+  line-height: 1.2;
 }
 .fp-day .fp-desc {
   font-size: 10px;
@@ -776,7 +777,7 @@ body.pro-mode .pub-only { display: none; }
   <div class="header-left">
     <div class="header-logo">&#x1F525;</div>
     <div>
-      <div class="header-title">ForestWatch</div>
+      <div class="header-title">Swivel-Head</div>
       <div class="header-subtitle">Wildfire Situational Awareness</div>
     </div>
   </div>
@@ -827,9 +828,9 @@ body.pro-mode .pub-only { display: none; }
       <input type="text" id="manualLon" placeholder="Longitude (e.g. -123.5)" inputmode="decimal">
     </div>
     <button class="manual-loc-btn primary" onclick="useManualCoords()">Go to Coordinates</button>
-    <div class="manual-loc-divider">or select a forest</div>
+    <div class="manual-loc-divider">or select a public land area</div>
     <select id="forestSelect" onchange="useSelectedForest()">
-      <option value="">-- Choose a National Forest --</option>
+      <option value="">-- Choose a Public Land Area --</option>
       <optgroup label="R5 - Pacific Southwest (ONCC)">
         <option value="40.9,-123.5">Six Rivers NF</option>
         <option value="41.3,-122.5">Shasta-Trinity NF</option>
@@ -907,6 +908,28 @@ body.pro-mode .pub-only { display: none; }
         <option value="44.0,-71.5">White Mountain NF</option>
         <option value="43.0,-73.0">Green Mountain NF</option>
       </optgroup>
+      <optgroup label="BLM - Bureau of Land Management">
+        <option value="39.5,-116.8">BLM - Battle Mountain District, NV</option>
+        <option value="43.6,-116.2">BLM - Boise District, ID</option>
+        <option value="38.5,-109.5">BLM - Moab Field Office, UT</option>
+        <option value="36.9,-111.5">BLM - Arizona Strip, AZ</option>
+        <option value="42.8,-117.5">BLM - Vale District, OR</option>
+        <option value="44.8,-108.0">BLM - Cody Field Office, WY</option>
+        <option value="40.5,-117.5">BLM - Winnemucca District, NV</option>
+        <option value="37.0,-105.5">BLM - San Luis Valley, CO</option>
+        <option value="35.2,-106.5">BLM - Rio Puerco Field Office, NM</option>
+        <option value="46.8,-109.5">BLM - Lewistown Field Office, MT</option>
+      </optgroup>
+      <optgroup label="State Parks & Lands">
+        <option value="40.35,-123.96">Humboldt Redwoods SP, CA</option>
+        <option value="36.25,-121.8">Big Sur / Pfeiffer SP, CA</option>
+        <option value="44.9,-110.4">Yellowstone area State Lands, MT</option>
+        <option value="37.75,-122.5">Mt. Tamalpais SP, CA</option>
+        <option value="41.65,-124.1">Jedediah Smith Redwoods SP, CA</option>
+        <option value="34.0,-116.9">Mt. San Jacinto SP, CA</option>
+        <option value="45.5,-122.7">Forest Park, Portland, OR</option>
+        <option value="47.6,-122.3">Washington State Parks - Central</option>
+      </optgroup>
     </select>
     <button class="manual-loc-btn secondary" onclick="toggleManualPanel()">Cancel</button>
   </div>
@@ -926,8 +949,8 @@ body.pro-mode .pub-only { display: none; }
   <!-- EMPTY STATE (default) -->
   <div class="empty-state" id="emptyState">
     <div class="es-icon">&#x1F332;</div>
-    <h3>Welcome to ForestWatch</h3>
-    <p>Tap <strong>Locate Me</strong> to get wildfire situational awareness for your National Forest.</p>
+    <h3>Welcome to Swivel-Head</h3>
+    <p>Tap <strong>Locate Me</strong> to get wildfire situational awareness for your area.</p>
     <p style="margin-top:12px;font-size:13px;color:#aaa;">GPS not working? Click the map, or use the manual entry panel.</p>
   </div>
 
@@ -988,7 +1011,7 @@ body.pro-mode .pub-only { display: none; }
     <!-- PROJECT ACTIVITY LEVEL -->
     <div class="card">
       <div class="card-header">
-        <span class="card-title">&#x1F6A8; Project Activity Level</span>
+        <span class="card-title" style="text-transform:none;letter-spacing:0;">&#x1F6A8; Project Activity Level: <span style="font-weight:400;font-size:12px;">Always exercise caution when operating chainsaw powerheads or heavy equipment in the forest during fire season.</span></span>
         <span class="pal-badge" id="palBadge">--</span>
       </div>
       <div id="palDescription" style="font-size:14px;line-height:1.5;margin-bottom:12px;"></div>
@@ -1095,6 +1118,7 @@ body.pro-mode .pub-only { display: none; }
     <div class="source-note">
       Data sourced from <a href="https://weather.gov" target="_blank">weather.gov</a>,
       <a href="https://apps.fs.usda.gov" target="_blank">USFS</a>,
+      <a href="https://gis.blm.gov" target="_blank">BLM</a>,
       <a href="https://gacc.nifc.gov" target="_blank">GACC/NIFC</a>, and
       <a href="https://fsapps.nwcg.gov" target="_blank">NWCG</a><br>
       Last updated: <span id="lastUpdated">--</span>
@@ -1106,7 +1130,7 @@ body.pro-mode .pub-only { display: none; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 // ============================================================
-// FORESTWATCH - CORE APPLICATION
+// SWIVEL-HEAD - CORE APPLICATION
 // ============================================================
 
 const APP = {
@@ -1118,6 +1142,7 @@ const APP = {
   userLon: null,
   proMode: false,
   forestData: null,
+  landData: null,   // BLM/State/NPS land from SMA endpoint
   weatherData: null,
   gridData: null,
   alertsData: null,
@@ -1126,6 +1151,24 @@ const APP = {
 
   // USFS ArcGIS endpoint for National Forest boundaries
   USFS_URL: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_ForestSystemBoundaries_01/MapServer/0/query',
+
+  // BLM Surface Management Agency endpoint (covers ALL federal/state/local lands)
+  SMA_URL: 'https://gis.blm.gov/arcgis/rest/services/lands/BLM_Natl_SMA_Cached_without_PriUnk/MapServer/1/query',
+
+  // Agency code to readable name
+  AGENCY_NAMES: {
+    'BLM': 'Bureau of Land Management',
+    'NPS': 'National Park Service',
+    'FS':  'US Forest Service',
+    'FWS': 'US Fish & Wildlife Service',
+    'BOR': 'Bureau of Reclamation',
+    'BIA': 'Bureau of Indian Affairs',
+    'DOD': 'Department of Defense',
+    'ST':  'State Lands',
+    'LG':  'Local Government',
+    'PVT': 'Private',
+    'UND': 'Undetermined'
+  },
 
   // Region to GACC mapping
   REGION_GACC: {
@@ -1156,7 +1199,7 @@ function initMap() {
         <div style="font-size:36px;margin-bottom:10px;">&#x1F5FA;</div>
         <div style="font-size:14px;font-weight:600;color:var(--forest);margin-bottom:6px;">Map unavailable in this viewer</div>
         <div style="font-size:12px;color:#888;max-width:260px;line-height:1.4;">
-          Use the forest dropdown or enter coordinates below. For full map, open this file via localhost.
+          Use the dropdown or enter coordinates below. For full map, open this file via localhost.
         </div>
       </div>`;
     return;
@@ -1244,7 +1287,7 @@ async function geolocateUser() {
 
 // Core data loading function - used by GPS, manual coords, and forest selector
 async function loadLocationData(lat, lon) {
-  showLoading('Identifying National Forest...');
+  showLoading('Identifying land jurisdiction...');
   APP.userLat = lat;
   APP.userLon = lon;
 
@@ -1355,9 +1398,10 @@ function clearLocationError() {
 }
 
 // ============================================================
-// USFS FOREST BOUNDARY QUERY
+// LAND BOUNDARY QUERIES (USFS + BLM SMA)
 // ============================================================
 async function fetchForestData() {
+  // Query USFS first for National Forest boundaries
   const geom = JSON.stringify({
     x: APP.userLon,
     y: APP.userLat,
@@ -1371,7 +1415,7 @@ async function fetchForestData() {
     outFields: 'FORESTNAME,FORESTNUMBER,GIS_ACRES,REGION',
     returnGeometry: 'true',
     outSR: '4326',
-    maxAllowableOffset: '0.005',  // ~500m simplification for performance
+    maxAllowableOffset: '0.005',
     f: 'geojson'
   });
 
@@ -1382,20 +1426,78 @@ async function fetchForestData() {
 
     if (data.features && data.features.length > 0) {
       APP.forestData = data.features[0];
+      APP.landData = null; // On USFS land, no need for SMA fallback
       drawForestBoundary(data.features[0]);
     } else {
-      // Not in a National Forest - find nearest
+      // Not in a National Forest -- try BLM/State/other federal lands
       APP.forestData = null;
-      await findNearestForest();
+      await fetchSMALandData();
+      // If still no land data, try nearest USFS forest
+      if (!APP.landData) {
+        await findNearestForest();
+      }
     }
   } catch (err) {
     console.error('USFS query error:', err);
     APP.forestData = null;
+    // Fall back to SMA even if USFS fails
+    await fetchSMALandData();
+  }
+}
+
+// BLM Surface Management Agency -- covers BLM, NPS, State, Local, BIA, etc.
+async function fetchSMALandData() {
+  try {
+    const geomJson = encodeURIComponent(JSON.stringify({
+      x: APP.userLon,
+      y: APP.userLat,
+      spatialReference: { wkid: 4326 }
+    }));
+
+    const url = `${APP.SMA_URL}?geometry=${geomJson}`
+      + `&geometryType=esriGeometryPoint`
+      + `&spatialRel=esriSpatialRelIntersects`
+      + `&outFields=ADMIN_UNIT_NAME,ADMIN_AGENCY_CODE,ADMIN_DEPT_CODE,ADMIN_UNIT_TYPE,SHAPE_Area,ADMIN_ST`
+      + `&returnGeometry=false`
+      + `&inSR=4326`
+      + `&f=json`;
+
+    const resp = await fetchWithRetry(url);
+    if (!resp.ok) {
+      console.warn(`SMA query returned ${resp.status}`);
+      APP.landData = null;
+      return;
+    }
+    const data = await resp.json();
+
+    if (data.features && data.features.length > 0) {
+      const attrs = data.features[0].attributes;
+      const agencyCode = attrs.ADMIN_AGENCY_CODE || 'UND';
+
+      // Skip private/undetermined -- not useful to display
+      if (agencyCode === 'PVT' || agencyCode === 'UND') {
+        APP.landData = null;
+        return;
+      }
+
+      APP.landData = {
+        agencyCode: agencyCode,
+        agencyName: APP.AGENCY_NAMES[agencyCode] || agencyCode,
+        unitName: attrs.ADMIN_UNIT_NAME || null,
+        unitType: attrs.ADMIN_UNIT_TYPE || null,
+        state: attrs.ADMIN_ST || null,
+        acres: attrs.SHAPE_Area ? Math.round(attrs.SHAPE_Area * 0.000247105) : null
+      };
+    } else {
+      APP.landData = null;
+    }
+  } catch (err) {
+    console.error('SMA land query error:', err);
+    APP.landData = null;
   }
 }
 
 async function findNearestForest() {
-  // Query forests near the user's location with a buffer
   const geom = JSON.stringify({
     xmin: APP.userLon - 1,
     ymin: APP.userLat - 1,
@@ -1421,7 +1523,6 @@ async function findNearestForest() {
     if (!resp.ok) throw new Error(`USFS nearest query returned ${resp.status}`);
     const data = await resp.json();
     if (data.features && data.features.length > 0) {
-      // Pick the first (closest by bounding box)
       APP.forestData = data.features[0];
       APP.forestData.properties._nearby = true;
       drawForestBoundary(data.features[0]);
@@ -1571,29 +1672,44 @@ function renderAll() {
   renderFireIndices();
 }
 
-// -- FOREST BANNER --
+// -- FOREST/LAND BANNER --
 function renderForestBanner() {
   const banner = document.getElementById('forestBanner');
-  if (!APP.forestData) {
-    banner.classList.remove('visible');
+
+  // USFS National Forest -- primary display
+  if (APP.forestData) {
+    const p = APP.forestData.properties;
+    const name = p.FORESTNAME || p.forestname || 'Unknown Forest';
+    const region = p.REGION || p.region || '--';
+    const acres = p.GIS_ACRES || p.gis_acres;
+    const gacc = APP.REGION_GACC[region] || '--';
+
+    document.getElementById('forestName').textContent =
+      (p._nearby ? 'Near: ' : '') + name;
+    document.getElementById('forestRegion').textContent =
+      APP.REGION_NAMES[region] || `Region ${region}`;
+    document.getElementById('forestAcres').textContent =
+      acres ? `${Math.round(acres).toLocaleString()} acres` : '-- acres';
+    document.getElementById('forestGACC').textContent = `GACC: ${gacc}`;
+    banner.classList.add('visible');
     return;
   }
 
-  const p = APP.forestData.properties;
-  const name = p.FORESTNAME || p.forestname || 'Unknown Forest';
-  const region = p.REGION || p.region || '--';
-  const acres = p.GIS_ACRES || p.gis_acres;
-  const gacc = APP.REGION_GACC[region] || '--';
+  // BLM / State / Other federal land from SMA
+  if (APP.landData) {
+    const ld = APP.landData;
+    const displayName = ld.unitName || ld.agencyName;
+    document.getElementById('forestName').textContent = displayName;
+    document.getElementById('forestRegion').textContent = ld.agencyName;
+    document.getElementById('forestAcres').textContent =
+      ld.acres ? `${ld.acres.toLocaleString()} acres` : '-- acres';
+    document.getElementById('forestGACC').textContent =
+      ld.state ? `State: ${ld.state}` : '--';
+    banner.classList.add('visible');
+    return;
+  }
 
-  document.getElementById('forestName').textContent =
-    (p._nearby ? 'Near: ' : '') + name;
-  document.getElementById('forestRegion').textContent =
-    APP.REGION_NAMES[region] || `Region ${region}`;
-  document.getElementById('forestAcres').textContent =
-    acres ? `${Math.round(acres).toLocaleString()} acres` : '-- acres';
-  document.getElementById('forestGACC').textContent = `GACC: ${gacc}`;
-
-  banner.classList.add('visible');
+  banner.classList.remove('visible');
 }
 
 // -- RED FLAG ALERTS --
@@ -1749,13 +1865,13 @@ function renderFirePotential() {
   // Dryness code mapping
   // NWCG Predictive Services dryness/trigger codes
   const drynessMap = {
-    0:  { label: 'No Data',          short: '--', css: 'fp-nodata' },
-    1:  { label: 'Little/No Risk',   short: 'M',  css: 'fp-moist' },
-    2:  { label: 'Low Risk',         short: 'D',  css: 'fp-dry' },
-    3:  { label: 'Moderate Risk',    short: 'VD', css: 'fp-very-dry' },
-    4:  { label: 'Lightning',        short: 'L',  css: 'fp-lightning' },
-    5:  { label: 'Wind Warning',     short: 'W',  css: 'fp-wind' },
-    11: { label: 'Burn Environment', short: 'B',  css: 'fp-burn' }
+    0:  { label: 'No Data',          short: 'No Data',   css: 'fp-nodata' },
+    1:  { label: 'Little/No Risk',   short: 'Moist',     css: 'fp-moist' },
+    2:  { label: 'Low Risk',         short: 'Dry',       css: 'fp-dry' },
+    3:  { label: 'Moderate Risk',    short: 'Very Dry',  css: 'fp-very-dry' },
+    4:  { label: 'Lightning',        short: 'Lightning', css: 'fp-lightning' },
+    5:  { label: 'Wind Warning',     short: 'Wind',      css: 'fp-wind' },
+    11: { label: 'Burn Environment', short: 'Burn',      css: 'fp-burn' }
   };
 
   // Build the 7-day strip
@@ -2114,7 +2230,7 @@ function renderPrecautions() {
   // Always-applicable
   precautions.push({
     icon: '\u{1F4F1}',
-    text: 'Monitor local conditions. Weather can shift rapidly in forested terrain. Keep checking ForestWatch.'
+    text: 'Monitor local conditions. Weather can shift rapidly in forested terrain. Keep checking Swivel-Head.'
   });
 
   // Wind-based
@@ -2404,7 +2520,7 @@ async function toggleNotifications() {
       btn.classList.add('enabled');
       scheduleDaily7amCheck();
       // Show confirmation
-      new Notification('ForestWatch Notifications Enabled', {
+      new Notification('Swivel-Head Notifications Enabled', {
         body: 'You will receive daily fire weather updates at 7:00 AM local time.',
         icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🔥</text></svg>'
       });
@@ -2440,13 +2556,13 @@ function sendDailyNotification() {
   const forestName = APP.forestData.properties.FORESTNAME || 'Your National Forest';
   const rh = getCurrentValue(APP.gridData?.properties?.relativeHumidity);
   const body = rh !== null
-    ? `Current RH: ${Math.round(rh)}%. Check ForestWatch for full conditions.`
+    ? `Current RH: ${Math.round(rh)}%. Check Swivel-Head for full conditions.`
     : 'Tap to check today\'s fire weather conditions.';
 
   new Notification(`${forestName} - Daily Update`, {
     body: body,
     icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🔥</text></svg>',
-    tag: 'forestwatch-daily'
+    tag: 'swivel-head-daily'
   });
 }
 
