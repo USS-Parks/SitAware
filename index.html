@@ -238,15 +238,14 @@ html, body {
   background: var(--forest-light);
   color: white;
   border: none;
-  border-radius: 50%;
-  width: 44px;
-  height: 44px;
+  border-radius: 50px;
+  padding: 12px 20px;
   font-size: 14px;
   cursor: pointer;
   box-shadow: var(--shadow-lg);
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
   transition: all 0.2s;
 }
 .locate-btn:hover { background: var(--forest-mid); transform: translateY(-1px); }
@@ -450,9 +449,6 @@ html, body {
   padding: 12px;
   max-width: 600px;
   margin: 0 auto;
-}
-.desktop-layout {
-  display: none;
 }
 
 /* ============================================================
@@ -1014,48 +1010,8 @@ body.light-mode .skeleton {
   .content { padding: 16px; }
 }
 @media (min-width: 1024px) {
-  .content { display: none; }
-  .desktop-layout {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    max-width: 1200px;
-    margin: 0 auto;
-    min-height: calc(100vh - 46px);
-  }
-  .desktop-layout.has-alert {
-    min-height: calc(100vh - 82px);
-  }
-  .dl-left {
-    display: flex;
-    flex-direction: column;
-    border-right: 1px solid var(--surface-border);
-  }
-  .dl-left #map-container {
-    flex: 1;
-    height: auto;
-    min-height: 300px;
-  }
-  .dl-left-cards {
-    padding: 12px;
-  }
-  .dl-right {
-    padding: 12px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .dl-right .card { margin-bottom: 0; }
-  .source-footer-desktop {
-    border-top: 1px solid var(--surface-border);
-    padding: 6px 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 10px;
-    color: var(--text-dim);
-  }
-  .source-footer-desktop a { color: var(--orange-light); text-decoration: none; }
+  .content { max-width: 800px; padding: 16px 24px; }
+  #map-container { height: 420px; }
 }
 </style>
 </head>
@@ -1073,11 +1029,7 @@ body.light-mode .skeleton {
   <div class="header-right">
     <span class="header-updated" id="headerUpdated" aria-live="polite"></span>
     <div class="toggle-group">
-      <span class="toggle-label" id="proLabel">Pro</span>
-      <div class="toggle" id="proToggle" role="switch" aria-checked="false" aria-label="Toggle pro mode" tabindex="0"></div>
-    </div>
-    <div class="toggle-group">
-      <span class="toggle-label" id="themeLabel">Theme</span>
+      <span class="toggle-label" id="themeLabel">&#x1F31A;</span>
       <div class="toggle" id="themeToggle" role="switch" aria-checked="true" aria-label="Toggle dark/light theme" tabindex="0"></div>
     </div>
   </div>
@@ -1115,12 +1067,8 @@ body.light-mode .skeleton {
   <div id="map" role="application" aria-label="Interactive map"></div>
   <div class="map-coords" id="mapCoords" aria-live="polite"></div>
   <button class="locate-btn" id="locateBtn" aria-label="Find my location">
-    <span class="btn-icon">
-      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-        <circle cx="10" cy="8" r="4" stroke="currentColor" stroke-width="2" fill="none"/>
-        <path d="M10 13v5M7 16h6" stroke="currentColor" stroke-width="2"/>
-      </svg>
-    </span>
+    <span class="btn-icon">&#x1F4CD;</span>
+    <span class="btn-text">Locate Me</span>
     <span class="spinner"></span>
   </button>
 
@@ -1339,11 +1287,6 @@ body.light-mode .skeleton {
   </div>
 </div>
 
-<!-- ============================================================
-     DESKTOP LAYOUT (>= 1024px) - mirrors mobile but two-column
-     This is populated dynamically by JS on resize
-     ============================================================ -->
-<div class="desktop-layout" id="desktopLayout"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"
   integrity="sha512-puJW3E/qXDqYp9IfhAI54BJEaWIfloJ7JWs7OeD5i6ruC9JZL1gERT1wjtwXFlh7CjE7ZJ+/vcRZRkIYIb6p4g=="
@@ -2605,12 +2548,12 @@ function toggleTheme() {
   APP.darkMode = !APP.darkMode;
   document.body.classList.toggle('light-mode', !APP.darkMode);
   document.getElementById('themeToggle').setAttribute('aria-checked', APP.darkMode);
+  document.getElementById('themeLabel').textContent = APP.darkMode ? '\u{1F31A}' : '\u2600\uFE0F';
 }
 
 function toggleProMode() {
   APP.proMode = !APP.proMode;
   document.body.classList.toggle('pro-mode', APP.proMode);
-  document.getElementById('proToggle').setAttribute('aria-checked', APP.proMode);
   // Show/hide extended metric grid
   const proGrid = document.getElementById('metricGridPro');
   if (proGrid) proGrid.style.display = APP.proMode ? 'grid' : 'none';
@@ -2643,13 +2586,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Toggles
   document.getElementById('themeToggle').addEventListener('click', toggleTheme);
-  document.getElementById('proToggle').addEventListener('click', toggleProMode);
 
-  // Keyboard support for toggles
-  ['themeToggle', 'proToggle'].forEach(id => {
-    document.getElementById(id).addEventListener('keydown', function(e) {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.click(); }
-    });
+  // Keyboard support for toggle
+  document.getElementById('themeToggle').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.click(); }
   });
 
   // Error retry
@@ -2671,7 +2611,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Pro mode starts enabled (matching original default)
   APP.proMode = true;
   document.body.classList.add('pro-mode');
-  document.getElementById('proToggle').setAttribute('aria-checked', 'true');
   const proGrid = document.getElementById('metricGridPro');
   if (proGrid) proGrid.style.display = 'grid';
 });
