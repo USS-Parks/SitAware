@@ -1552,8 +1552,6 @@ async function loadLocationData(lat, lon) {
       hideErrorBanner();
     }
 
-    document.getElementById('locPanel').classList.remove('visible');
-    clearLocationError();
 
   } catch (err) {
     console.error('Data load error:', err);
