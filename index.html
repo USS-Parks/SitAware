@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#243D2E">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>SitAware - Wildfire Situational Awareness</title>
+<title>Swivel-Head Pro - Wildfire Situational Awareness</title>
 <link rel="manifest" href="manifest.json">
 <meta http-equiv="Content-Security-Policy"
   content="default-src 'none';
@@ -365,6 +365,17 @@ html, body {
 }
 .loc-divider::before { left: 0; }
 .loc-divider::after { right: 0; }
+.loc-select {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-xs);
+  font-size: 13px;
+  cursor: pointer;
+  appearance: auto;
+}
 .loc-error {
   background: var(--red-flag-bg);
   color: var(--red-flag);
@@ -630,6 +641,7 @@ html, body {
   text-align: center;
 }
 .fi-time { font-size: 11px; color: var(--text-muted); }
+.fi-icon { font-size: 18px; margin: 2px 0; }
 .fi-temp { font-size: 14px; font-weight: 500; margin: 3px 0; }
 .fi-detail { font-size: 10px; color: var(--text-muted); }
 
@@ -1020,9 +1032,9 @@ body.light-mode .skeleton {
 <!-- HEADER -->
 <header class="header" role="banner">
   <div class="header-left">
-    <div class="header-logo"><img src="icon-512.png" width="30" height="30" alt="SitAware"></div>
+    <div class="header-logo"><img src="icon-512.png" width="30" height="30" alt="Swivel-Head Pro"></div>
     <div>
-      <div class="header-title">SitAware</div>
+      <div class="header-title">Swivel-Head Pro</div>
       <div class="header-context" id="headerContext">Wildfire Situational Awareness</div>
     </div>
   </div>
@@ -1082,7 +1094,12 @@ body.light-mode .skeleton {
       <input type="text" class="loc-input" id="manualLon" placeholder="Longitude (e.g. -123.5)" inputmode="decimal" aria-label="Longitude">
     </div>
     <button class="loc-btn loc-btn-primary" id="goCoords">Go to coordinates</button>
-    <div class="loc-divider">or search nearby areas</div>
+    <div class="loc-divider">or select a public land area</div>
+    <select class="loc-select" id="forestSelect" aria-label="Choose a public land area">
+      <option value="">-- Choose a Public Land Area --</option>
+    </select>
+    <div class="loc-radius-note" id="locRadiusNote"></div>
+    <div class="loc-divider">or search all areas</div>
     <div class="loc-search">
       <svg class="loc-search-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
         <circle cx="6.5" cy="6.5" r="5" stroke="#999" stroke-width="1.5" fill="none"/>
@@ -1091,7 +1108,6 @@ body.light-mode .skeleton {
       <input type="text" class="loc-search-input" id="locSearchInput" placeholder="Search forests, reservations, BLM areas..." aria-label="Search locations">
     </div>
     <div class="loc-results" id="locResults" role="listbox" aria-label="Nearby locations"></div>
-    <div class="loc-radius-note" id="locRadiusNote"></div>
     <button class="loc-btn loc-btn-secondary" id="locPanelCancel">Cancel</button>
   </div>
 </div>
@@ -1109,8 +1125,8 @@ body.light-mode .skeleton {
      ============================================================ -->
 <div class="content" id="mainContent">
   <div class="empty-state" id="emptyState">
-    <div class="es-icon"><img src="icon-512.png" width="180" height="180" alt="SitAware"></div>
-    <h3>Welcome to SitAware</h3>
+    <div class="es-icon"><img src="icon-512.png" width="180" height="180" alt="Swivel-Head Pro"></div>
+    <h3>Welcome to Swivel-Head Pro</h3>
     <p>Tap the locate button to get wildfire situational awareness for your area.</p>
     <p style="margin-top:12px;font-size:13px;color:rgba(240,237,228,0.5);">GPS not working? Click the map, or use the manual entry panel.</p>
   </div>
@@ -1184,6 +1200,7 @@ body.light-mode .skeleton {
       </div>
       <!-- PAL description + restrictions -->
       <div id="palSection" style="margin-top:10px;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">&#x1F6A8; Project Activity Level: <span style="font-weight:400;">Always exercise caution when operating chainsaw powerheads or heavy equipment in the forest during fire season.</span></div>
         <div id="palDescription" style="font-size:13px;line-height:1.5;color:var(--cream);"></div>
         <div class="pal-restrictions" id="palRestrictions"></div>
         <div class="pal-detail pro-only" id="palProDetail"></div>
@@ -1293,7 +1310,7 @@ body.light-mode .skeleton {
   crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
 // ============================================================
-// SITAWARE - CORE APPLICATION (REFACTORED)
+// SWIVEL-HEAD PRO - CORE APPLICATION (REFACTORED)
 // ============================================================
 
 // --- CONFIG: Single source of truth for thresholds ---
@@ -1554,6 +1571,48 @@ function updateLocationFilter() {
   note.textContent = `${nearby.length} area${nearby.length !== 1 ? 's' : ''} within 50 miles`;
 }
 
+function populateForestDropdown() {
+  const sel = document.getElementById('forestSelect');
+  sel.innerHTML = '<option value="">-- Choose a Public Land Area --</option>';
+  if (APP.userLat === null || APP.userLon === null) {
+    // No location yet - show all grouped by type
+    const groups = {};
+    LOCATIONS.forEach(loc => {
+      if (!groups[loc.type]) groups[loc.type] = [];
+      groups[loc.type].push(loc);
+    });
+    Object.keys(groups).sort().forEach(type => {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = type;
+      groups[type].sort((a, b) => a.name.localeCompare(b.name)).forEach(loc => {
+        const opt = document.createElement('option');
+        opt.value = `${loc.lat},${loc.lon}`;
+        opt.textContent = loc.name;
+        optgroup.appendChild(opt);
+      });
+      sel.appendChild(optgroup);
+    });
+  } else {
+    // Filter to 50 miles, sorted by distance
+    const nearby = getNearbyLocations(APP.userLat, APP.userLon, THRESHOLDS.MAX_NEARBY_DISTANCE_MI);
+    nearby.forEach(loc => {
+      const opt = document.createElement('option');
+      opt.value = `${loc.lat},${loc.lon}`;
+      opt.textContent = `${loc.name} (${Math.round(loc.distance)} mi)`;
+      sel.appendChild(opt);
+    });
+  }
+}
+
+function useSelectedForest() {
+  const sel = document.getElementById('forestSelect');
+  if (!sel.value) return;
+  const [lat, lon] = sel.value.split(',').map(Number);
+  clearLocationError();
+  document.getElementById('locPanel').classList.remove('visible');
+  loadLocationData(lat, lon);
+}
+
 function filterLocationsBySearch(query) {
   const q = query.toLowerCase().trim();
   if (!q) {
@@ -1709,8 +1768,9 @@ async function loadLocationData(lat, lon) {
     }).addTo(APP.map).bindPopup(`${lat.toFixed(4)}, ${lon.toFixed(4)}`);
   }
 
-  // Update location filter with nearby results
+  // Update location filter and dropdown with nearby results
   updateLocationFilter();
+  populateForestDropdown();
 
   try {
     await Promise.all([fetchForestData(), fetchTribalData()]);
@@ -1805,6 +1865,19 @@ function clearLocationError() {
   el.textContent = '';
   el.classList.remove('visible');
 }
+function getWeatherIcon(forecast, isDaytime) {
+  const f = forecast.toLowerCase();
+  if (f.includes('thunder') || f.includes('storm')) return '\u26C8';
+  if (f.includes('rain') || f.includes('shower')) return '\u{1F327}';
+  if (f.includes('snow')) return '\u{1F328}';
+  if (f.includes('fog') || f.includes('mist')) return '\u{1F32B}';
+  if (f.includes('cloud') || f.includes('overcast')) return '\u2601';
+  if (f.includes('partly') || f.includes('mostly sunny')) return '\u26C5';
+  if (f.includes('smoke')) return '\u{1F32B}';
+  if (f.includes('wind')) return '\u{1F4A8}';
+  return isDaytime ? '\u2600' : '\u{1F319}';
+}
+
 function showLoading(text) {
   document.getElementById('loadingText').textContent = text;
   document.getElementById('loadingOverlay').classList.add('visible');
@@ -2362,7 +2435,8 @@ function renderForecast() {
     const rhAtTime = findRHAtTime(rhValues, time);
     const item = document.createElement('div');
     item.className = 'forecast-item';
-    item.innerHTML = `<div class="fi-time">${time.toLocaleTimeString([], {hour:'numeric'})}</div><div class="fi-temp">${period.temperature}\u00B0</div><div class="fi-detail">RH ${rhAtTime !== null ? Math.round(rhAtTime) + '%' : '--'}</div>`;
+    const icon = getWeatherIcon(period.shortForecast, period.isDaytime);
+    item.innerHTML = `<div class="fi-time">${time.toLocaleTimeString([], {hour:'numeric'})}</div><div class="fi-icon">${icon}</div><div class="fi-temp">${period.temperature}\u00B0</div><div class="fi-detail">RH ${rhAtTime !== null ? Math.round(rhAtTime) + '%' : '--'}</div>`;
     strip.appendChild(item);
   });
 }
@@ -2578,6 +2652,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('locPanelClose').addEventListener('click', toggleLocPanel);
   document.getElementById('locPanelCancel').addEventListener('click', toggleLocPanel);
   document.getElementById('goCoords').addEventListener('click', useManualCoords);
+
+  // Forest dropdown
+  document.getElementById('forestSelect').addEventListener('change', useSelectedForest);
+  populateForestDropdown();
 
   // Location search
   document.getElementById('locSearchInput').addEventListener('input', function() {
