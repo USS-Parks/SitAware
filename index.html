@@ -702,62 +702,6 @@ html, body {
   color: rgba(240,237,228,0.7);
   line-height: 1.5;
 }
-.loc-prompt {
-  margin-top: 24px;
-  background: var(--surface);
-  border: 1px solid var(--surface-border);
-  border-radius: var(--radius);
-  padding: 20px;
-  max-width: 320px;
-  margin-left: auto;
-  margin-right: auto;
-  text-align: center;
-}
-.loc-prompt-icon {
-  font-size: 28px;
-  margin-bottom: 8px;
-}
-.loc-prompt-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--cream);
-  line-height: 1.4;
-  margin-bottom: 16px;
-}
-.loc-prompt-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.loc-prompt-btn {
-  padding: 12px 16px;
-  border: none;
-  border-radius: var(--radius-xs);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: var(--font);
-  transition: all 0.2s;
-  min-height: 44px;
-}
-.loc-prompt-primary {
-  background: var(--forest-light);
-  color: white;
-}
-.loc-prompt-primary:hover {
-  background: var(--forest-mid);
-}
-.loc-prompt-secondary {
-  background: transparent;
-  color: var(--text-muted);
-  border: 1px solid var(--surface-border);
-}
-.loc-prompt-secondary:hover {
-  background: var(--surface-border);
-  color: var(--cream);
-  max-width: 280px;
-  margin: 0 auto;
-}
 
 /* ============================================================
    FOREST/LAND BANNER
@@ -859,7 +803,6 @@ body.light-mode .source-footer { color: #999; }
 body.light-mode .source-footer a { color: var(--orange-dark); }
 body.light-mode .empty-state h3 { color: var(--black); }
 body.light-mode .empty-state p { color: #666; }
-body.light-mode .loc-prompt-title { color: var(--black); }
 body.light-mode #map-container { background: var(--cream-dark); }
 body.light-mode .precaution-item { background: rgba(212,112,42,0.06); }
 body.light-mode .surface-border { border-color: #e8e4db; }
@@ -884,7 +827,6 @@ body.light-mode .skeleton {
 @media (min-width: 1024px) {
   .content { max-width: 800px; padding: 16px 24px; }
   #map-container { height: 420px; }
-  .loc-prompt { display: none; }
 }
 </style>
 </head>
@@ -958,17 +900,6 @@ body.light-mode .skeleton {
     <div class="es-icon"><img src="icon-512.png" width="180" height="180" alt="Swivel-Head Pro"></div>
     <h3>Welcome to Swivel-Head Pro</h3>
     <p id="emptyMsg"></p>
-
-    <!-- Location permission prompt -->
-    <div class="loc-prompt" id="locPrompt">
-      <div class="loc-prompt-icon">&#x1F4CD;</div>
-      <div class="loc-prompt-title">Allow this website to access your location?</div>
-      <div class="loc-prompt-buttons">
-        <button class="loc-prompt-btn loc-prompt-primary" id="locAlways">Always</button>
-        <button class="loc-prompt-btn loc-prompt-primary" id="locOnce">Only Once</button>
-        <button class="loc-prompt-btn loc-prompt-secondary" id="locDeny">No thanks, I'll use the map</button>
-      </div>
-    </div>
   </div>
 
   <!-- DATA PANELS (hidden until data loads) -->
@@ -1515,9 +1446,7 @@ function initMap() {
 // ============================================================
 function gpsFailFallback() {
   const msg = document.getElementById('emptyMsg');
-  if (msg) msg.textContent = 'Tap anywhere on the map to get started.';
-  const prompt = document.getElementById('locPrompt');
-  if (prompt) prompt.style.display = 'none';
+  if (msg) msg.textContent = 'Tap anywhere on the map to set your location.';
   const hint = document.getElementById('mapTapHint');
   if (hint) hint.classList.add('pulse');
 }
@@ -1542,8 +1471,6 @@ async function geolocateUser() {
 
   // If GPS API isn't available at all, IP fallback then map tap
   if (!navigator.geolocation || onForeignHost || (inIframe && window.isSecureContext === false) || window.isSecureContext === false) {
-    const prompt = document.getElementById('locPrompt');
-    if (prompt) prompt.style.display = 'none';
     const msg = document.getElementById('emptyMsg');
     if (msg) msg.textContent = 'Finding your location...';
     showLoading('Finding your location...');
@@ -1553,9 +1480,7 @@ async function geolocateUser() {
     return;
   }
 
-  // Hide custom prompt, show loading
-  const prompt = document.getElementById('locPrompt');
-  if (prompt) prompt.style.display = 'none';
+  // Show loading state
   const msg = document.getElementById('emptyMsg');
   if (msg) msg.textContent = 'Finding your location...';
   showLoading('Finding your location...');
@@ -2574,48 +2499,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const proGrid = document.getElementById('metricGridPro');
   if (proGrid) proGrid.style.display = 'grid';
 
-  // Desktop: auto-geolocate immediately. Mobile: show permission prompt.
+  // Desktop: auto-geolocate. Mobile: try GPS silently, fall back to map tap.
   const isDesktop = window.innerWidth >= 1024;
   if (isDesktop) {
     geolocateUser();
   } else {
-    // Wire up mobile location prompt buttons
-    document.getElementById('locAlways').addEventListener('click', function() {
-      localStorage.setItem('shp_loc_pref', 'always');
-      geolocateUser();
-    });
-    document.getElementById('locOnce').addEventListener('click', function() {
-      geolocateUser();
-    });
-    document.getElementById('locDeny').addEventListener('click', function() {
-      gpsFailFallback();
-    });
-    // If user previously chose "Always", check if browser permission is already granted
-    // before auto-calling (some mobile browsers require user gesture for the permission prompt)
-    if (localStorage.getItem('shp_loc_pref') === 'always') {
-      if (navigator.permissions) {
-        navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
-          if (result.state === 'granted') {
-            // Permission already granted, safe to auto-call without gesture
-            geolocateUser();
-          } else if (result.state === 'denied') {
-            // Browser has blocked location, clear stale preference
-            localStorage.removeItem('shp_loc_pref');
-            gpsFailFallback();
-          } else {
-            // 'prompt' state: browser will show its own dialog, needs user gesture
-            // Show our custom prompt so user taps a button (provides the gesture)
-            // The prompt is already visible by default, so do nothing
-          }
-        }).catch(function() {
-          // Permissions API query failed, just try it
-          geolocateUser();
-        });
-      } else {
-        // No Permissions API (older iOS Safari), just try it
-        geolocateUser();
-      }
-    }
+    // On mobile, attempt GPS in the background. If it works, great.
+    // If it fails (as it usually does), the user gets the pulsing map tap hint.
+    geolocateUser();
   }
 });
 </script>
