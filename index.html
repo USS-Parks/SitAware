@@ -1267,6 +1267,12 @@ async function loadLocationData(lat, lon) {
   APP.userLat = lat;
   APP.userLon = lon;
 
+  // Clear previous boundary layers before loading new location
+  if (APP.mapAvailable) {
+    if (APP.forestLayer) { APP.map.removeLayer(APP.forestLayer); APP.forestLayer = null; }
+    if (APP.tribalLayer) { APP.map.removeLayer(APP.tribalLayer); APP.tribalLayer = null; }
+  }
+
   // Update map (if available)
   if (APP.mapAvailable) {
     APP.map.setView([APP.userLat, APP.userLon], 10);
