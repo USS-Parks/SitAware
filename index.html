@@ -444,11 +444,12 @@ html, body {
 .forecast-item {
   flex-shrink: 0;
   text-align: center;
+  min-width: 62px;
 }
 .fi-time { font-size: 11px; color: var(--text-muted); }
 .fi-icon { font-size: 18px; margin: 2px 0; }
 .fi-temp { font-size: 14px; font-weight: 500; margin: 3px 0; }
-.fi-detail { font-size: 10px; color: var(--text-muted); }
+.fi-detail { font-size: 9px; color: var(--text-muted); line-height: 1.3; }
 
 /* RH recovery */
 .rh-recovery-summary {
@@ -999,6 +1000,12 @@ body.light-mode .skeleton {
     <div class="card">
       <div class="card-label">Hourly forecast</div>
       <div class="forecast-strip" id="forecastStrip"></div>
+    </div>
+
+    <!-- NWS DETAILED FORECAST -->
+    <div class="card" id="detailedForecastCard" style="display:none;">
+      <div class="card-label">NWS forecast detail</div>
+      <div id="detailedForecastContent" style="font-size:12px;line-height:1.6;color:var(--cream-dark);"></div>
     </div>
 
     <!-- PRECAUTIONS -->
@@ -1967,6 +1974,7 @@ function renderAll() {
   renderFirePotential();
   renderHumidityRecovery();
   renderForecast();
+  renderDetailedForecast();
   renderPrecautions();
   renderFireIndices();
 }
@@ -2039,11 +2047,25 @@ function renderHeroCard() {
   const grid = APP.gridData?.properties;
   const heroCard = document.getElementById('heroCard');
 
-  // Temperature & condition
+  // Temperature & condition with granular detail
   if (hourly && hourly.length > 0) {
     const now = hourly[0];
     document.getElementById('heroTemp').textContent = `${now.temperature}\u00B0${now.temperatureUnit}`;
-    document.getElementById('heroCondition').textContent = `${now.shortForecast} \u00B7 ${now.windSpeed} ${now.windDirection}`;
+    // Build quantitative condition: sky cover + wind + PoP%
+    const pop = now.probabilityOfPrecipitation?.value;
+    const skyVal = grid ? getCurrentValue(grid.skyCover) : null;
+    let skyDesc = now.shortForecast;
+    if (skyVal !== null) {
+      if (skyVal <= 10) skyDesc = 'Clear';
+      else if (skyVal <= 30) skyDesc = 'Mostly Clear';
+      else if (skyVal <= 60) skyDesc = 'Partly Cloudy';
+      else if (skyVal <= 85) skyDesc = 'Mostly Cloudy';
+      else skyDesc = 'Overcast';
+      skyDesc += ` (${Math.round(skyVal)}% sky)`;
+    }
+    let condLine = `${skyDesc} \u00B7 ${now.windSpeed} ${now.windDirection}`;
+    if (pop !== null && pop > 0) condLine += ` \u00B7 ${pop}% precip chance`;
+    document.getElementById('heroCondition').textContent = condLine;
     document.getElementById('mWind').textContent = now.windSpeed.replace(/ mph/i, '');
     document.getElementById('mWindDir').textContent = now.windDirection;
   }
@@ -2257,15 +2279,55 @@ function renderForecast() {
   if (!hourly) { strip.innerHTML = '<div style="font-size:11px;color:var(--text-muted);padding:8px;">Forecast unavailable</div>'; return; }
   strip.innerHTML = '';
   const rhValues = APP.gridData?.properties?.relativeHumidity?.values || [];
+  const skyValues = APP.gridData?.properties?.skyCover?.values || [];
+  const popValues = APP.gridData?.properties?.probabilityOfPrecipitation?.values || [];
   hourly.slice(0, 12).forEach(period => {
     const time = new Date(period.startTime);
     const rhAtTime = findRHAtTime(rhValues, time);
+    const skyAtTime = findValueAtTime(skyValues, time);
+    const popHourly = period.probabilityOfPrecipitation?.value;
+    const popGrid = findValueAtTime(popValues, time);
+    const popVal = popHourly !== null && popHourly !== undefined ? popHourly : popGrid;
     const item = document.createElement('div');
     item.className = 'forecast-item';
     const icon = getWeatherIcon(period.shortForecast, period.isDaytime);
-    item.innerHTML = `<div class="fi-time">${time.toLocaleTimeString([], {hour:'numeric'})}</div><div class="fi-icon">${icon}</div><div class="fi-temp">${period.temperature}\u00B0</div><div class="fi-detail">RH ${rhAtTime !== null ? Math.round(rhAtTime) + '%' : '--'}</div>`;
+    let detailParts = [];
+    if (rhAtTime !== null) detailParts.push(`RH ${Math.round(rhAtTime)}%`);
+    if (skyAtTime !== null) detailParts.push(`Sky ${Math.round(skyAtTime)}%`);
+    if (popVal !== null && popVal > 0) detailParts.push(`\u{1F4A7}${Math.round(popVal)}%`);
+    const detailStr = detailParts.join(' \u00B7 ') || '--';
+    item.innerHTML = `<div class="fi-time">${time.toLocaleTimeString([], {hour:'numeric'})}</div><div class="fi-icon">${icon}</div><div class="fi-temp">${period.temperature}\u00B0</div><div class="fi-detail">${detailStr}</div>`;
     strip.appendChild(item);
   });
+}
+
+// Generic time-series value lookup (for skyCover, PoP, etc.)
+function findValueAtTime(valuesArr, targetTime) {
+  for (const v of valuesArr) {
+    const parts = v.validTime.split('/');
+    const start = new Date(parts[0]);
+    const end = new Date(start.getTime() + parseDurationMs(parts[1]));
+    if (targetTime >= start && targetTime < end) return v.value;
+  }
+  return null;
+}
+
+// -- NWS DETAILED FORECAST --
+function renderDetailedForecast() {
+  const card = document.getElementById('detailedForecastCard');
+  const container = document.getElementById('detailedForecastContent');
+  const periods = APP.forecastData?.properties?.periods;
+  if (!periods || periods.length === 0) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  // Show first 4 periods (Today, Tonight, Tomorrow, Tomorrow Night)
+  const html = periods.slice(0, 4).map(p => {
+    const pop = p.probabilityOfPrecipitation?.value;
+    let header = `<strong style="color:var(--cream);">${p.name}</strong>`;
+    header += ` <span style="color:var(--orange-light);">${p.temperature}\u00B0${p.temperatureUnit}</span>`;
+    if (pop !== null && pop > 0) header += ` <span style="color:var(--pal-c);">\u{1F4A7} ${pop}%</span>`;
+    return `<div style="margin-bottom:10px;">${header}<br><span>${p.detailedForecast}</span></div>`;
+  }).join('');
+  container.innerHTML = html;
 }
 
 // -- PRECAUTIONS --
