@@ -1,6 +1,6 @@
 {
-  "name": "Swivel-Head Pro - Wildfire Situational Awareness",
-  "short_name": "Swivel-Head Pro",
+  "name": "SITAWARE - Wildfire Situational Awareness",
+  "short_name": "SITAWARE",
   "description": "Wildfire situational awareness for National Forests, BLM lands, and State Parks with real-time weather, PAL levels, and fire danger data.",
   "start_url": "./index.html",
   "display": "standalone",

@@ -1,4 +1,4 @@
-// Swivel-Head Pro Service Worker
+// SITAWARE Service Worker
 // Handles offline caching and notification scheduling
 
 const CACHE_NAME = 'swivel-head-v4';
@@ -72,12 +72,12 @@ self.addEventListener('fetch', event => {
 // Push notification handler (for future backend integration)
 self.addEventListener('push', event => {
   const data = event.data ? event.data.json() : {};
-  const title = data.title || 'Swivel-Head Pro Update';
+  const title = data.title || 'SITAWARE Update';
   const options = {
     body: data.body || 'Check your daily fire weather conditions.',
     icon: './icon-512.png',
     badge: './icon-512.png',
-    tag: 'swivel-head-daily',
+    tag: 'sitaware-daily',
     data: { url: './index.html' },
     actions: [
       { action: 'open', title: 'View Conditions' },

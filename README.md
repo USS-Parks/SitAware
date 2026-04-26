@@ -1,11 +1,11 @@
 Here is the complete `README.md` content. Copy everything between the triple backticks below, then paste it directly into your GitHub repository’s file editor (creating a new file named `README.md`).
 
 ```markdown
-# Swivel-Head Pro – Wildfire Situational Awareness
+# SITAWARE – Wildfire Situational Awareness
 
 **Live app:** [https://uss-parks.github.io/SitAware/](https://uss-parks.github.io/SitAware/)
 
-Swivel-Head Pro is a web‑based application that provides real‑time wildfire situational awareness for U.S. National Forests and public lands. It delivers detailed weather data, fire risk indices, overnight humidity recovery, and safety recommendations – all by default, with no “Pro” upgrade required. A **Light / Dark theme toggle** lets you choose your preferred viewing experience.
+SITAWARE is a web‑based application that provides real‑time wildfire situational awareness for U.S. National Forests and public lands. It delivers detailed weather data, fire risk indices, overnight humidity recovery, and safety recommendations – all by default, with no “Pro” upgrade required. A **Light / Dark theme toggle** lets you choose your preferred viewing experience.
 
 ---
 
@@ -51,7 +51,7 @@ All data is sourced from official U.S. government agencies:
 
 ## Installation & Setup
 
-Swivel-Head Pro is a **static web application** – no server‑side components required.
+SITAWARE is a **static web application** – no server‑side components required.
 
 ### Run locally (development / testing)
 
@@ -89,7 +89,7 @@ The header contains a **moon/sun** button that switches the entire interface bet
 
 ## Notifications
 
-If you grant permission, Swivel-Head Pro sends a daily notification at **7:00 AM (local time)** containing:
+If you grant permission, SITAWARE sends a daily notification at **7:00 AM (local time)** containing:
 
 - Today’s high temperature and wind forecast  
 - Project Activity Level and any restrictions  
@@ -120,7 +120,7 @@ This project is open source under the terms of the **MIT License**. See the `LIC
 
 ---
 
-**Swivel-Head Pro** – Stay aware, stay safe.  
+**SITAWARE** – Stay aware, stay safe.  
 [View live app](https://uss-parks.github.io/SitAware/)
 ```
 5. Scroll down, write a commit message (e.g., "Add README"), and click **Commit new file**.
