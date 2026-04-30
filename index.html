@@ -578,6 +578,80 @@ html, body {
   color: var(--cream);
 }
 
+/* Spot Weather Check Card */
+.swc-section {
+  margin-bottom: 8px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+}
+.swc-section:last-child { margin-bottom: 0; }
+.swc-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(46,94,62,0.15);
+  cursor: pointer;
+  user-select: none;
+}
+.swc-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--cream);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.swc-section-chevron {
+  font-size: 10px;
+  color: var(--text-muted);
+  transition: transform 0.2s;
+}
+.swc-section.collapsed .swc-section-chevron { transform: rotate(-90deg); }
+.swc-section.collapsed .swc-section-body { display: none; }
+.swc-section-body { padding: 0; }
+.swc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--surface-border);
+  font-size: 12px;
+}
+.swc-row:last-child { border-bottom: none; }
+.swc-row-label {
+  color: var(--text-muted);
+  font-size: 11px;
+  flex: 1;
+  min-width: 0;
+}
+.swc-row-value {
+  color: var(--cream);
+  font-weight: 500;
+  text-align: right;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+.swc-row-trend {
+  color: var(--text-dim);
+  font-size: 10px;
+  margin-left: 8px;
+  flex-shrink: 0;
+  min-width: 50px;
+  text-align: right;
+}
+.swc-val-good { color: var(--green-text); }
+.swc-val-warn { color: var(--orange-light); }
+.swc-val-danger { color: var(--red-text); }
+.swc-val-na { color: var(--text-dim); font-style: italic; font-weight: 400; }
+.swc-derived {
+  font-size: 9px;
+  color: var(--text-dim);
+  padding: 4px 12px 6px;
+  border-top: 1px dashed var(--surface-border);
+  font-style: italic;
+}
+
 /* PAL detail (pro mode) */
 .pal-detail {
   margin-top: 10px;
@@ -799,6 +873,11 @@ body.light-mode .fp-bar-day {
 body.light-mode .rh-recovery-note { color: #666; }
 body.light-mode .data-row { border-bottom-color: #e8e4db; }
 body.light-mode .pro-table td { color: var(--black); border-bottom-color: #e8e4db; }
+body.light-mode .swc-section-header { background: rgba(46,94,62,0.08); }
+body.light-mode .swc-section-title { color: var(--black); }
+body.light-mode .swc-row { border-bottom-color: #e8e4db; }
+body.light-mode .swc-row-value { color: var(--black); }
+body.light-mode .swc-row-label { color: #666; }
 body.light-mode .forest-banner { background: var(--forest-light); }
 body.light-mode .source-footer { color: #999; }
 body.light-mode .source-footer a { color: var(--orange-dark); }
@@ -1021,16 +1100,13 @@ body.light-mode .skeleton {
       <div id="precautionsList"></div>
     </div>
 
-    <!-- PRO: FIRE WEATHER INDICES -->
+    <!-- PRO: SPOT WEATHER CHECK -->
     <div class="card pro-only" id="indicesCard">
       <div class="card-header">
-        <div class="card-label">Fire weather indices</div>
-        <span style="font-size:10px;color:var(--text-dim);">weather.gov gridpoint</span>
+        <div class="card-label">Spot weather check</div>
+        <span style="font-size:10px;color:var(--text-dim);" id="swcTimestamp"></span>
       </div>
-      <table class="pro-table">
-        <thead><tr><th>Index</th><th>Value</th><th>Trend</th></tr></thead>
-        <tbody id="indicesTable"></tbody>
-      </table>
+      <div id="swcContent"></div>
     </div>
 
     <!-- PRO: Detailed RH -->
@@ -1615,6 +1691,8 @@ async function loadLocationData(lat, lon) {
     await fetchWeatherData();
     showLoading('Checking alerts...');
     await fetchAlerts();
+    showLoading('Fetching fire weather forecast...');
+    await fetchFireWeatherForecast();
     showLoading('Fetching fire potential...');
     await fetchFirePotential();
 
@@ -1873,6 +1951,7 @@ async function fetchWeatherData() {
     APP.weatherMeta = {
       gridId: props.gridId, gridX: props.gridX, gridY: props.gridY,
       fireZone: props.fireWeatherZone ? props.fireWeatherZone.split('/').pop() : '--',
+      fireZoneUrl: props.fireWeatherZone || '',
       timeZone: props.timeZone,
       city: props.relativeLocation?.properties?.city || '--',
       state: props.relativeLocation?.properties?.state || '--'
@@ -1908,6 +1987,139 @@ async function fetchWithRetry(url, retries = 2) {
       if (i === retries) throw err;
       await new Promise(r => setTimeout(r, 1000 * (i + 1)));
     }
+  }
+}
+
+async function fetchFireWeatherForecast() {
+  try {
+    const wfo = APP.weatherMeta?.gridId;
+    const fwzUrl = APP.weatherMeta?.fireZoneUrl;
+    if (!wfo) { APP.fwfData = null; return; }
+
+    // Get the fire weather zone code from the full URL
+    const fwzCode = fwzUrl ? fwzUrl.split('/').pop() : APP.weatherMeta?.fireZone;
+
+    // Fetch latest FWF product for this WFO
+    const listResp = await fetchWithRetry(`https://api.weather.gov/products?type=FWF&location=${wfo}&limit=1`);
+    if (!listResp.ok) { APP.fwfData = null; return; }
+    const listData = await listResp.json();
+    const products = listData['@graph'] || [];
+    if (products.length === 0) { APP.fwfData = null; return; }
+
+    const productId = products[0].id;
+    const issuedTime = products[0].issuanceTime;
+
+    // Fetch the actual product text
+    const prodResp = await fetchWithRetry(`https://api.weather.gov/products/${productId}`);
+    if (!prodResp.ok) { APP.fwfData = null; return; }
+    const prodData = await prodResp.json();
+    const fullText = prodData.productText || '';
+
+    // Extract discussion section
+    let discussion = '';
+    const discMatch = fullText.match(/\.DISCUSSION\.\.\.([\s\S]*?)(?=\n\n[A-Z]{2}Z\d|$)/);
+    if (discMatch) discussion = discMatch[1].trim().replace(/\s+/g, ' ');
+
+    // Extract the zone-specific section by splitting on $$ delimiters
+    let zoneText = '';
+    let zoneName = '';
+    if (fwzCode) {
+      const sections = fullText.split('$$');
+      for (const section of sections) {
+        if (section.indexOf(fwzCode) !== -1) {
+          const sLines = section.trim().split('\n');
+          // First line: zone code, second: zone name, third: date, then blank, then forecast
+          if (sLines.length > 3) {
+            zoneName = sLines[1].replace(/-$/g, '').trim();
+            // Find where forecast periods start (lines starting with .)
+            let startIdx = 3;
+            for (let li = 3; li < sLines.length; li++) {
+              if (sLines[li].match(/^\.[A-Z]/)) { startIdx = li; break; }
+            }
+            zoneText = sLines.slice(startIdx).join('\n').trim();
+          }
+          break;
+        }
+      }
+    }
+
+    // Parse individual forecast periods from the zone text
+    const periods = [];
+    if (zoneText) {
+      const periodBlocks = zoneText.split(/(?=\.[A-Z]+\.\.\.)/);
+      for (const block of periodBlocks) {
+        const nameMatch = block.match(/^\.([A-Z ]+)\.\.\./);
+        if (!nameMatch) continue;
+        const periodName = nameMatch[1].trim();
+        const periodData = {};
+        periodData.name = periodName.charAt(0) + periodName.slice(1).toLowerCase();
+
+        // Parse each field
+        const skyMatch = block.match(/\* Sky\/Weather\.\.\.([\s\S]*?)(?=\n\s*\*|\n*$)/);
+        if (skyMatch) periodData.sky = skyMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
+
+        const maxTempMatch = block.match(/\* Max Temperature\.\.\.([\s\S]*?)(?=\n\s*\*|\n*$)/);
+        if (maxTempMatch) periodData.maxTemp = maxTempMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
+
+        const minTempMatch = block.match(/\* Min Temperature\.\.\.([\s\S]*?)(?=\n\s*\*|\n*$)/);
+        if (minTempMatch) periodData.minTemp = minTempMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
+
+        const minHumMatch = block.match(/\* Min Humidity\.\.\.([\s\S]*?)(?=\n\s*\*|\n*$)/);
+        if (minHumMatch) periodData.minHumidity = minHumMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
+
+        const maxHumMatch = block.match(/\* Max Humidity\.\.\.([\s\S]*?)(?=\n\s*\*|\n*$)/);
+        if (maxHumMatch) periodData.maxHumidity = maxHumMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
+
+        const mixMatch = block.match(/\* MIXING HEIGHT\.\.\.([\s\S]*?)(?=\n\s*\*|\n*$)/);
+        if (mixMatch) periodData.mixingHeight = mixMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
+
+        const snowMatch = block.match(/\* SNOW LEVEL\.\.\.([\s\S]*?)(?=\n\s*\*|\n*$)/);
+        if (snowMatch) periodData.snowLevel = snowMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
+
+        // 20-foot winds — preserve valleys/slopes and ridges as separate fields
+        const windSection = block.match(/\* 20-FOOT WINDS\.\.\.\s*\n([\s\S]*?)(?=\n\s*\.\w|\n*$)/);
+        if (windSection) {
+          const windText = windSection[1];
+          const valleyMatch = windText.match(/VALLEYS\/SLOPES\.\.\.\.\.\.\.([\s\S]*?)(?=\n\s{4}RIDGES|$)/);
+          const ridgeMatch = windText.match(/RIDGES\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.([\s\S]*?)$/);
+          if (valleyMatch) periodData.windValley = valleyMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
+          if (ridgeMatch) periodData.windRidge = ridgeMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
+        }
+
+        // Transport winds (some zones include these)
+        const transMatch = block.match(/\* TRANSPORT WINDS?\.\.\.([\s\S]*?)(?=\n\s*\*|\n*$)/);
+        if (transMatch) periodData.transportWind = transMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
+
+        // Ventilation / dispersion (some zones)
+        const ventMatch = block.match(/\* (?:VENTILATION|DISPERSION)\.\.\.([\s\S]*?)(?=\n\s*\*|\n*$)/);
+        if (ventMatch) periodData.ventilation = ventMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
+
+        // Haines (some zones)
+        const hainesMatch = block.match(/\* HAINES\s*(?:INDEX)?\.\.\.([\s\S]*?)(?=\n\s*\*|\n*$)/);
+        if (hainesMatch) periodData.haines = hainesMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
+
+        // LAL (Lightning Activity Level)
+        const lalMatch = block.match(/\* (?:LAL|LIGHTNING ACTIVITY)\.\.\.([\s\S]*?)(?=\n\s*\*|\n*$)/);
+        if (lalMatch) periodData.lal = lalMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
+
+        periods.push(periodData);
+      }
+    }
+
+    APP.fwfData = {
+      issuedTime: issuedTime,
+      wfo: wfo,
+      fwzCode: fwzCode,
+      zoneName: zoneName,
+      discussion: discussion,
+      periods: periods,
+      rawText: zoneText
+    };
+
+  } catch (err) {
+    console.error('FWF fetch error:', err);
+    APP.fwfData = null;
+    APP.errors.push('Fire weather forecast unavailable');
   }
 }
 
@@ -2354,34 +2566,223 @@ function renderPrecautions() {
 
 // -- FIRE WEATHER INDICES --
 function renderFireIndices() {
+  const container = document.getElementById('swcContent');
+  const timestampEl = document.getElementById('swcTimestamp');
+  const fwf = APP.fwfData;
   const grid = APP.gridData?.properties;
-  if (!grid) return;
-  const tbody = document.getElementById('indicesTable');
+
+  // If we have the NWS Fire Weather Forecast, render that
+  if (fwf && fwf.periods && fwf.periods.length > 0) {
+    // Timestamp
+    if (fwf.issuedTime) {
+      const issued = new Date(fwf.issuedTime);
+      timestampEl.textContent = 'NWS ' + fwf.wfo + ' \u00b7 ' + issued.toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+    }
+
+    let html = '';
+
+    // Zone name header
+    if (fwf.zoneName) {
+      html += `<div style="font-size:12px;font-weight:600;color:var(--orange-light);margin-bottom:6px;">${fwf.zoneName}</div>`;
+    }
+    if (fwf.fwzCode) {
+      html += `<div style="font-size:10px;color:var(--text-dim);margin-bottom:10px;">Fire Weather Zone: ${fwf.fwzCode}</div>`;
+    }
+
+    // Discussion
+    if (fwf.discussion) {
+      html += `<div class="swc-section">
+        <div class="swc-section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+          <span class="swc-section-title">Discussion</span>
+          <span class="swc-section-chevron">\u25bc</span>
+        </div>
+        <div class="swc-section-body">
+          <div style="padding:10px 12px;font-size:12px;color:var(--cream);line-height:1.5;">${fwf.discussion}</div>
+        </div>
+      </div>`;
+    }
+
+    // Render each forecast period as a collapsible section
+    fwf.periods.forEach(function(period, idx) {
+      const isFirst = idx === 0;
+      const collapsedClass = isFirst ? '' : ' collapsed';
+
+      let rows = '';
+
+      if (period.sky) {
+        rows += swcRow('Sky / Weather', period.sky);
+      }
+      if (period.maxTemp) {
+        rows += swcRow('Max Temperature', period.maxTemp + '\u00b0F');
+      }
+      if (period.minTemp) {
+        rows += swcRow('Min Temperature', period.minTemp + '\u00b0F');
+      }
+      if (period.minHumidity) {
+        const rhVal = period.minHumidity.replace(/ percent/i, '%');
+        const rhNum = parseInt(rhVal);
+        let rhClass = '';
+        if (!isNaN(rhNum)) {
+          const lowEnd = parseInt(rhVal.split('-')[0]);
+          if (lowEnd < 15) rhClass = 'swc-val-danger';
+          else if (lowEnd < 25) rhClass = 'swc-val-warn';
+          else rhClass = 'swc-val-good';
+        }
+        rows += swcRow('Min Humidity', rhVal, rhClass);
+      }
+      if (period.maxHumidity) {
+        rows += swcRow('Max Humidity', period.maxHumidity.replace(/ percent/i, '%'));
+      }
+      if (period.mixingHeight) {
+        rows += swcRow('Mixing Height', period.mixingHeight);
+      }
+      if (period.snowLevel) {
+        rows += swcRow('Snow Level', period.snowLevel);
+      }
+      if (period.windValley) {
+        rows += swcRow('20-ft Wind (Valleys)', period.windValley);
+      }
+      if (period.windRidge) {
+        rows += swcRow('20-ft Wind (Ridges)', period.windRidge);
+      }
+      if (period.transportWind) {
+        rows += swcRow('Transport Wind', period.transportWind);
+      }
+      if (period.ventilation) {
+        rows += swcRow('Ventilation', period.ventilation);
+      }
+      if (period.haines) {
+        rows += swcRow('Haines Index', period.haines);
+      }
+      if (period.lal) {
+        rows += swcRow('Lightning Activity', period.lal);
+      }
+
+      html += `<div class="swc-section${collapsedClass}">
+        <div class="swc-section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+          <span class="swc-section-title">${period.name}</span>
+          <span class="swc-section-chevron">\u25bc</span>
+        </div>
+        <div class="swc-section-body">${rows}</div>
+      </div>`;
+    });
+
+    // Gridpoint supplement \u2014 calculated values from weather.gov gridpoint data
+    if (grid) {
+      let suppRows = '';
+      const rh = getCurrentValue(grid.relativeHumidity);
+      const windSpd = getCurrentValue(grid.windSpeed);
+      const windDir = getCurrentValue(grid.windDirection);
+      const windGst = getCurrentValue(grid.windGust);
+      const transSpd = getCurrentValue(grid.transportWindSpeed);
+      const transDir = getCurrentValue(grid.transportWindDirection);
+      const mixHt = getCurrentValue(grid.mixingHeight);
+      const temp = getCurrentValue(grid.temperature);
+      const dew = getCurrentValue(grid.dewpoint);
+
+      if (rh !== null) {
+        let rhClass = rh < 15 ? 'swc-val-danger' : rh < 25 ? 'swc-val-warn' : 'swc-val-good';
+        suppRows += swcRow('Relative Humidity (current)', Math.round(rh) + '%', rhClass);
+      }
+      if (temp !== null) suppRows += swcRow('Temperature', Math.round(temp * 9/5 + 32) + '\u00b0F (' + Math.round(temp) + '\u00b0C)');
+      if (dew !== null) suppRows += swcRow('Dewpoint', Math.round(dew * 9/5 + 32) + '\u00b0F (' + Math.round(dew) + '\u00b0C)');
+      if (windSpd !== null) {
+        const mph = Math.round(windSpd * 0.621371);
+        const dirStr = windDir !== null ? ' from ' + degreesToCardinal(windDir) + ' (' + Math.round(windDir) + '\u00b0)' : '';
+        suppRows += swcRow('Surface Wind', mph + ' mph' + dirStr);
+      }
+      if (windGst !== null) {
+        const gustMph = Math.round(windGst * 0.621371);
+        let gustClass = gustMph > 35 ? 'swc-val-danger' : gustMph > 20 ? 'swc-val-warn' : '';
+        suppRows += swcRow('Wind Gust', gustMph + ' mph', gustClass);
+      }
+      if (transSpd !== null) {
+        const tMph = Math.round(transSpd * 0.621371);
+        const tDir = transDir !== null ? ' from ' + degreesToCardinal(transDir) : '';
+        suppRows += swcRow('Transport Wind', tMph + ' mph' + tDir);
+      }
+      if (mixHt !== null) suppRows += swcRow('Mixing Height', Math.round(mixHt * 3.28084).toLocaleString() + ' ft AGL');
+
+      // Calculated: Ventilation Rate = mixing height (ft) * transport wind (mph)
+      if (mixHt !== null && transSpd !== null) {
+        const ventRate = Math.round(mixHt * 3.28084) * Math.round(transSpd * 0.621371);
+        let ventClass = ventRate < 10000 ? 'swc-val-danger' : ventRate < 40000 ? 'swc-val-warn' : 'swc-val-good';
+        let ventDesc = ventRate < 10000 ? 'Poor' : ventRate < 40000 ? 'Fair' : ventRate < 100000 ? 'Good' : 'Excellent';
+        suppRows += swcRow('Ventilation Rate', ventRate.toLocaleString() + ' kt-ft (' + ventDesc + ')', ventClass);
+      }
+
+      // Calculated: Fosberg FWI (approximation from temp, RH, wind)
+      if (rh !== null && windSpd !== null && temp !== null) {
+        const fwi = calcFosbergFWI(temp, rh, windSpd * 0.621371);
+        let fwiClass = fwi > 50 ? 'swc-val-danger' : fwi > 25 ? 'swc-val-warn' : 'swc-val-good';
+        suppRows += swcRow('Fosberg FWI', Math.round(fwi), fwiClass);
+      }
+
+      if (suppRows) {
+        html += `<div class="swc-section collapsed">
+          <div class="swc-section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+            <span class="swc-section-title">Gridpoint Data (Current Obs)</span>
+            <span class="swc-section-chevron">\u25bc</span>
+          </div>
+          <div class="swc-section-body">
+            ${suppRows}
+            <div class="swc-derived">Derived from weather.gov gridpoint ${fwf.wfo} (${APP.weatherMeta?.gridX},${APP.weatherMeta?.gridY}). Ventilation rate and Fosberg FWI are calculated values.</div>
+          </div>
+        </div>`;
+      }
+    }
+
+    container.innerHTML = html;
+    return;
+  }
+
+  // Fallback: no FWF available, render gridpoint data only
+  if (!grid) { container.innerHTML = '<div style="font-size:11px;color:var(--text-muted);padding:8px;">Fire weather data unavailable</div>'; return; }
+  timestampEl.textContent = 'weather.gov gridpoint';
+  let rows = '';
   const indices = [
     {name:'Relative Humidity',key:'relativeHumidity',unit:'%',convert:null},
     {name:'Wind Speed',key:'windSpeed',unit:'mph',convert:0.621371},
     {name:'Wind Gust',key:'windGust',unit:'mph',convert:0.621371},
-    {name:'Transport Wind',key:'transportWindSpeed',unit:'mph',convert:2.23694},
+    {name:'Transport Wind',key:'transportWindSpeed',unit:'mph',convert:0.621371},
+    {name:'Transport Direction',key:'transportWindDirection',unit:'\u00b0',convert:null},
     {name:'Mixing Height',key:'mixingHeight',unit:'ft',convert:3.28084},
     {name:'Haines Index',key:'hainesIndex',unit:'',convert:null},
-    {name:'Grassland Fire Danger',key:'grasslandFireDangerIndex',unit:'',convert:null},
     {name:'Davis Stability',key:'davisStabilityIndex',unit:'',convert:null},
   ];
-  tbody.innerHTML = indices.map(idx => {
+  indices.forEach(function(idx) {
     let val = getCurrentValue(grid[idx.key]);
-    if (val === null) return '';
+    if (val === null) return;
     if (idx.convert) val = val * idx.convert;
-    let prevVal = getPreviousValue(grid[idx.key]);
-    let trend = '--';
-    if (prevVal !== null) {
-      if (idx.convert) prevVal = prevVal * idx.convert;
-      const diff = val - prevVal;
-      if (Math.abs(diff) < 0.5) trend = '\u2192 Steady';
-      else if (diff > 0) trend = `\u2191 +${Math.round(diff)}`;
-      else trend = `\u2193 ${Math.round(diff)}`;
-    }
-    return `<tr><td>${idx.name}</td><td>${Math.round(val)} ${idx.unit}</td><td>${trend}</td></tr>`;
-  }).join('');
+    rows += swcRow(idx.name, Math.round(val) + ' ' + idx.unit);
+  });
+  container.innerHTML = rows || '<div style="font-size:11px;color:var(--text-muted);padding:8px;">No fire weather indices available for this location</div>';
+}
+
+function swcRow(label, value, valueClass) {
+  const cls = valueClass ? ' ' + valueClass : '';
+  return `<div class="swc-row"><span class="swc-row-label">${label}</span><span class="swc-row-value${cls}">${value}</span></div>`;
+}
+
+function degreesToCardinal(deg) {
+  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  return dirs[Math.round(deg / 22.5) % 16];
+}
+
+function calcFosbergFWI(tempC, rh, windMph) {
+  // Fosberg Fire Weather Index
+  // Moisture factor from RH
+  let m;
+  if (rh <= 10) m = 0.03229 + 0.281073 * rh - 0.000578 * rh * rh;
+  else if (rh <= 50) m = 2.22749 + 0.160107 * rh - 0.01478 * rh * rh;
+  else m = 21.0606 + 0.005565 * rh * rh - 0.00035 * rh * rh * rh - 0.483199 * rh;
+  m = Math.max(m, 0.1);
+  // Eta factor
+  const eta = 1 - 2 * (m / 30) + 1.5 * Math.pow(m / 30, 2) - 0.5 * Math.pow(m / 30, 3);
+  // Wind factor (convert to m/s for formula, then back)
+  const windKmh = windMph * 1.60934;
+  const sqrtTerm = Math.sqrt(1 + windKmh * windKmh);
+  return eta * sqrtTerm;
 }
 
 // ============================================================
