@@ -49,6 +49,7 @@ self.addEventListener('fetch', (event) => {
     url.hostname === 'fsapps.nwcg.gov' ||
     url.hostname === 'gis.blm.gov' ||
     url.hostname === 'tigerweb.geo.census.gov' ||
+    url.hostname === 'ipwho.is' ||
     url.hostname.endsWith('tile.openstreetmap.org')
   ) {
     event.respondWith(fetch(event.request))

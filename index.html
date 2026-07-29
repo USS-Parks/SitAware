@@ -13,7 +13,7 @@
   script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
   style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
   img-src 'self' https://*.tile.openstreetmap.org https://cdnjs.cloudflare.com https://fsapps.nwcg.gov data:;
-  connect-src https://api.weather.gov https://apps.fs.usda.gov https://services9.arcgis.com https://fsapps.nwcg.gov https://gis.blm.gov https://tigerweb.geo.census.gov;
+  connect-src https://api.weather.gov https://apps.fs.usda.gov https://services9.arcgis.com https://fsapps.nwcg.gov https://gis.blm.gov https://tigerweb.geo.census.gov https://ipwho.is;
   manifest-src 'self';
   worker-src 'self';
   font-src 'self';
@@ -1589,16 +1589,32 @@ function initMap() {
 // ============================================================
 // GEOLOCATION
 // ============================================================
-function gpsFailFallback(message) {
-  // Every geolocation path exhausted. If a location is already known (cache or a
-  // previous fix), refresh its data instead of dead-ending at the tap hint —
-  // but say so visibly: a silent wrong location is indistinguishable from a broken app.
-  // Never guess from the IP address — carrier/ISP egress points land far away.
+// Approximate network (IP) location — last automatic resort, always labeled as
+// approximate in the banner because carrier egress points can sit far away.
+async function tryIPFallback(reason) {
+  try {
+    const resp = await fetchWithRetry('https://ipwho.is/');
+    if (!resp.ok) return false;
+    const d = await resp.json();
+    if (d.success && d.latitude && d.longitude) {
+      APP.locationNotice = (reason || 'GPS unavailable.') + ' Showing approximate network location — tap the map to set your exact spot.';
+      await loadLocationData(d.latitude, d.longitude);
+      return true;
+    }
+  } catch (e) { /* fall through */ }
+  return false;
+}
+
+async function gpsFailFallback(message) {
+  // Every GPS path exhausted. Fallback order: last known location (refreshed),
+  // then approximate network location, then the map-tap hint. Each automatic
+  // fallback states what it is in the banner — never silently wrong.
   if (APP.userLat !== null && APP.userLon !== null) {
     APP.locationNotice = (message || 'GPS unavailable.') + ' Showing last known location — tap the map to change it.';
     loadLocationData(APP.userLat, APP.userLon);
     return;
   }
+  if (await tryIPFallback(message)) return;
   const msg = document.getElementById('emptyMsg');
   if (msg) msg.textContent = message || 'Tap anywhere on the map to set your location.';
   const hint = document.getElementById('mapTapHint');
