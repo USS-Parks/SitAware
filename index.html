@@ -13,7 +13,7 @@
   script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
   style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
   img-src 'self' https://*.tile.openstreetmap.org https://cdnjs.cloudflare.com https://fsapps.nwcg.gov data:;
-  connect-src https://api.weather.gov https://apps.fs.usda.gov https://services9.arcgis.com https://fsapps.nwcg.gov https://gis.blm.gov https://tigerweb.geo.census.gov https://ipwho.is;
+  connect-src https://api.weather.gov https://apps.fs.usda.gov https://services9.arcgis.com https://fsapps.nwcg.gov https://gis.blm.gov https://tigerweb.geo.census.gov;
   manifest-src 'self';
   worker-src 'self';
   font-src 'self';
@@ -1574,39 +1574,27 @@ function initMap() {
 // ============================================================
 // GEOLOCATION
 // ============================================================
-function gpsFailFallback() {
+function gpsFailFallback(message) {
+  // Every geolocation path exhausted. If a location is already known (cache or a
+  // previous fix), refresh its data instead of dead-ending at the tap hint.
+  // Never guess from the IP address — carrier/ISP egress points land far away.
+  if (APP.userLat !== null && APP.userLon !== null) {
+    loadLocationData(APP.userLat, APP.userLon);
+    return;
+  }
   const msg = document.getElementById('emptyMsg');
-  if (msg) msg.textContent = 'Tap anywhere on the map to set your location.';
+  if (msg) msg.textContent = message || 'Tap anywhere on the map to set your location.';
   const hint = document.getElementById('mapTapHint');
   if (hint) hint.classList.add('pulse');
-}
-
-async function tryIPFallback() {
-  try {
-    const ipResp = await fetch('https://ipwho.is/');
-    const ipData = await ipResp.json();
-    if (ipData.success && ipData.latitude && ipData.longitude) {
-      await loadLocationData(ipData.latitude, ipData.longitude);
-      return true;
-    }
-  } catch (ipErr) {
-    console.log('IP geolocation failed:', ipErr);
-  }
-  return false;
 }
 
 async function geolocateUser() {
   const inIframe = window.self !== window.top;
   const onForeignHost = window.location.hostname.includes('claudeusercontent.com');
 
-  // If GPS API isn't available at all, IP fallback then map tap
+  // GPS API not available in this context at all
   if (!navigator.geolocation || onForeignHost || (inIframe && window.isSecureContext === false) || window.isSecureContext === false) {
-    const msg = document.getElementById('emptyMsg');
-    if (msg) msg.textContent = 'Finding your location...';
-    showLoading('Finding your location...');
-    if (await tryIPFallback()) return;
-    hideLoading();
-    gpsFailFallback();
+    gpsFailFallback('Location is unavailable in this browser. Tap the map to set your location.');
     return;
   }
 
@@ -1631,10 +1619,8 @@ async function geolocateUser() {
     console.log('High-accuracy GPS failed:', err.code, err.message);
     // error.code 1 = PERMISSION_DENIED: user or browser blocked it, no point retrying GPS
     if (err.code === 1) {
-      console.log('Permission denied, falling back to IP');
-      if (await tryIPFallback()) return;
       hideLoading();
-      gpsFailFallback();
+      gpsFailFallback('Location permission is blocked. Enable location for this site in your browser settings, or tap the map to set your location.');
       return;
     }
   }
@@ -1681,9 +1667,6 @@ async function geolocateUser() {
   } catch (err3) {
     console.log('Low-accuracy GPS failed:', err3.code, err3.message);
   }
-
-  // --- Attempt 4: IP-based geolocation (city-level, last resort before map tap) ---
-  if (await tryIPFallback()) return;
 
   // --- All methods exhausted ---
   hideLoading();
@@ -3333,11 +3316,12 @@ document.addEventListener('DOMContentLoaded', () => {
   restoreCache();
   geolocateUser();
 
-  // Re-fetch when the app is foregrounded with stale data (installed-PWA case)
+  // Foregrounding the installed PWA doesn't reload the page — re-acquire GPS there
+  // too, so the app geolocates on every open, not just full page loads
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && APP.userLat !== null &&
+    if (document.visibilityState === 'visible' &&
         APP.lastFetch && Date.now() - APP.lastFetch > STALE_REFRESH_MS) {
-      loadLocationData(APP.userLat, APP.userLon);
+      geolocateUser();
     }
   });
 });
