@@ -1362,6 +1362,9 @@ const APP = {
   map: null,
   mapAvailable: false,
   userMarker: null,
+  watchId: null,
+  firstFixTimer: null,
+  manualLock: false,
   forestLayer: null,
   tribalLayer: null,
   userLat: null,
@@ -1452,6 +1455,8 @@ function renderLocationResults(locations) {
       const lat = parseFloat(this.dataset.lat);
       const lon = parseFloat(this.dataset.lon);
       clearLocationError();
+      APP.manualLock = true;
+      stopGeolocate();
       loadLocationData(lat, lon);
     });
   });
@@ -1493,6 +1498,8 @@ function useSelectedForest() {
   const [lat, lon] = sel.value.split(',').map(Number);
   clearLocationError();
   document.getElementById('locPanel').classList.remove('visible');
+  APP.manualLock = true;
+  stopGeolocate();
   loadLocationData(lat, lon);
 }
 
@@ -1537,6 +1544,8 @@ function filterLocationsBySearch(query) {
       const lat = parseFloat(this.dataset.lat);
       const lon = parseFloat(this.dataset.lon);
       clearLocationError();
+      APP.manualLock = true;
+      stopGeolocate();
       loadLocationData(lat, lon);
     });
   });
@@ -1588,9 +1597,10 @@ function geolocateUser() {
     return;
   }
 
+  if (APP.watchId !== null) return;  // already listening
+
   // A cached last-good view may already be on screen; locate silently behind it.
   const blank = APP.userLat === null;
-  const bootLat = APP.userLat, bootLon = APP.userLon;
   if (blank) {
     const msg = document.getElementById('emptyMsg');
     if (msg) msg.textContent = 'Finding your location...';
@@ -1598,57 +1608,56 @@ function geolocateUser() {
   }
 
   let fixLat = null, fixLon = null;
-  const stop = () => {
-    navigator.geolocation.clearWatch(watchId);
-    clearTimeout(firstFixDeadline);
-    clearTimeout(refineWindow);
-  };
 
-  const watchId = navigator.geolocation.watchPosition(
+  APP.watchId = navigator.geolocation.watchPosition(
     function(pos) {
-      // User set a location by hand while we waited on the prompt/fix: theirs wins.
-      if (fixLat === null && (APP.userLat !== bootLat || APP.userLon !== bootLon)) { stop(); return; }
+      // A hand-picked location wins for the rest of the session
+      if (APP.manualLock) { stopGeolocate(); return; }
       const lat = pos.coords.latitude, lon = pos.coords.longitude;
       const moved = fixLat === null || Math.abs(lat - fixLat) > 0.02 || Math.abs(lon - fixLon) > 0.02;
+      const stale = !APP.lastFetch || Date.now() - APP.lastFetch > STALE_REFRESH_MS;
       fixLat = lat; fixLon = lon;
-      if (moved) {
+      if (moved || stale) {
         console.log('Position fix:', lat, lon, 'accuracy:', pos.coords.accuracy, 'm');
         loadLocationData(lat, lon);
       } else {
-        // Refinement: nudge the marker to GPS truth without touching the view
+        // Live tracking: the marker follows the fix; camera and data stay put
         setMapLocation(lat, lon, true);
         document.getElementById('mapCoords').textContent = `${lat.toFixed(4)}°N, ${Math.abs(lon).toFixed(4)}°W`;
       }
-      if (pos.coords.accuracy <= 30) stop();
     },
     function(err) {
       console.log('Geolocation error:', err.code, err.message);
-      // code 1 = denied: dead until the user flips the site setting in the
-      // browser. code 2/3 are transient during acquisition; keep watching.
+      // code 1 = denied: nothing to listen for until the site setting changes.
+      // code 2/3 are transient (indoors, acquiring): the watch keeps listening.
       if (err.code === 1) {
-        stop();
+        stopGeolocate();
         hideLoading();
         if (blank) gpsFailFallback('Location is blocked for this site in your browser settings. Tap the map to set your location.');
-        // No fix is coming, but we know where they last were: refresh there.
-        // (Removing the IP fallback also removed the refetch it triggered on
-        // denied opens — without this, a cached view never updates or draws.)
-        else loadLocationData(APP.userLat, APP.userLon);
+        // No fix is coming, but we know where they last were: refresh there
+        // once the data has actually aged.
+        else if (!APP.lastFetch || Date.now() - APP.lastFetch > STALE_REFRESH_MS) loadLocationData(APP.userLat, APP.userLon);
       }
     },
     { enableHighAccuracy: true, maximumAge: 15000 }
   );
 
-  // No fix after 20 s: stop the spinner and offer the map tap, but leave the
-  // watch alive — a slow permission grant or GPS cold start can still land.
-  const firstFixDeadline = setTimeout(() => {
+  // No fix after 20 s (indoors, cold start): stop the spinner and refresh aged
+  // data at the last known position. The watch itself NEVER stops while the
+  // page is visible — the moment the device produces a fix, it lands here.
+  clearTimeout(APP.firstFixTimer);
+  APP.firstFixTimer = setTimeout(() => {
     if (fixLat === null) {
       hideLoading();
       if (blank) gpsFailFallback();
-      else loadLocationData(APP.userLat, APP.userLon);  // no fix yet: refresh last position
+      else if (!APP.lastFetch || Date.now() - APP.lastFetch > STALE_REFRESH_MS) loadLocationData(APP.userLat, APP.userLon);
     }
   }, 20000);
-  // GPS refinement gets 75 s total, then the watch stops regardless.
-  const refineWindow = setTimeout(stop, 75000);
+}
+
+function stopGeolocate() {
+  if (APP.watchId !== null) { navigator.geolocation.clearWatch(APP.watchId); APP.watchId = null; }
+  clearTimeout(APP.firstFixTimer);
 }
 
 // ============================================================
@@ -1853,6 +1862,8 @@ function useManualCoords() {
   if (isNaN(lat) || isNaN(lon)) { showLocationError('Enter valid numbers for latitude and longitude.'); return; }
   if (lat < 17 || lat > 72 || lon < -180 || lon > -64) { showLocationError('Coordinates appear outside the US. Lat: 17-72, Lon: -180 to -64.'); return; }
   clearLocationError();
+  APP.manualLock = true;
+  stopGeolocate();
   loadLocationData(lat, lon);
 }
 
@@ -1860,6 +1871,8 @@ function enableMapClick() {
   if (!APP.mapAvailable) return;
   APP.map.on('click', function(e) {
     if (e.latlng.lat > 17 && e.latlng.lat < 72 && e.latlng.lng > -180 && e.latlng.lng < -64) {
+      APP.manualLock = true;
+      stopGeolocate();
       loadLocationData(e.latlng.lat, e.latlng.lng);
     }
   });
@@ -3343,14 +3356,13 @@ document.addEventListener('DOMContentLoaded', () => {
   restoreCache();
   geolocateUser();
 
-  // Foregrounding a resurrected tab is how this app usually gets "opened":
-  // when data is stale, re-locate first so a user who moved gets data for
-  // where they are, not where they were. If no fix lands within the locate
-  // deadline (denied, no signal), refresh at the last known position instead.
+  // The live watch runs whenever the page is visible and pauses when hidden.
+  // Resuming re-arms it; the watch and deadline handle stale-data refreshes.
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && APP.userLat !== null &&
-        APP.lastFetch && Date.now() - APP.lastFetch > STALE_REFRESH_MS) {
-      geolocateUser();  // its no-fix paths refresh at the last known position
+    if (document.visibilityState === 'visible') {
+      if (!APP.manualLock) geolocateUser();
+    } else {
+      stopGeolocate();
     }
   });
 });
