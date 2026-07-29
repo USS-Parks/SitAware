@@ -672,6 +672,13 @@ html, body {
 .swc-val-na { color: var(--text-dim); font-style: italic; font-weight: 400; }
 /* Body-copy color that flips with the theme — use instead of inline var(--cream) */
 .ink { color: var(--cream); }
+.swc-terrain-tag {
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 .swc-body-text { padding: 10px 12px; font-size: 12px; line-height: 1.5; }
 .swc-derived {
   font-size: 9px;
@@ -3117,7 +3124,14 @@ function renderFireIndices() {
 
 function swcRow(label, value, valueClass) {
   const cls = valueClass ? ' ' + valueClass : '';
-  const val = String(value).replace(/^\.+\s*/, ''); // strip FWF dot leaders
+  let val = String(value).replace(/^\.+\s*/, ''); // strip FWF dot leaders
+  // FWF terrain-split values ("Valleys/lwr slopes...80-88 Ridges/upr slopes....68-76°F")
+  // are two data points — render them as stacked, labeled lines
+  const t = val.match(/valleys[^.]*\.{2,}\s*(.*?)\s*ridges[^.]*\.{2,}\s*(.*)$/i);
+  if (t) {
+    const clean = s => s.trim().replace(/\s*percent\b/i, '%').replace(/\.\s*$/, '');
+    val = `<span class="swc-terrain-tag">Valleys</span> ${clean(t[1])}<br><span class="swc-terrain-tag">Ridges</span> ${clean(t[2])}`;
+  }
   return `<div class="swc-row"><span class="swc-row-label">${label}</span><span class="swc-row-value${cls}">${val}</span></div>`;
 }
 
