@@ -1732,8 +1732,16 @@ async function loadLocationData(lat, lon) {
 
 function setMapLocation(lat, lon, keepView) {
   if (!APP.mapAvailable) return;
-  // Zoom 9 ≈ 65-mile-wide view at phone width (coast to Trinity Alps from Hoopa)
-  if (!keepView) APP.map.setView([lat, lon], 9);
+  // ~65-mile aerial view on any screen: pick the zoom whose span best fits
+  // 105 km across the actual map width (375 px phone → 9, wide desktop → 11).
+  // A fixed zoom only matches the intent at one viewport width.
+  if (!keepView) {
+    const w = APP.map.getSize().x;
+    const z = w > 0 ? Math.round(Math.log2(156543.03392 * Math.cos(lat * Math.PI / 180) * w / 104607)) : 9;
+    // animate:false — an interrupted zoom tween can strand the camera at the
+    // old level; the landing view must be deterministic
+    APP.map.setView([lat, lon], z, { animate: false });
+  }
   if (APP.userMarker) APP.map.removeLayer(APP.userMarker);
   APP.userMarker = L.marker([lat, lon], {
     icon: L.divIcon({
