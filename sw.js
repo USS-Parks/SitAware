@@ -1,7 +1,8 @@
 // SITAWARE Service Worker
 // Handles offline caching and notification scheduling
 
-const CACHE_NAME = 'sitaware-v5'
+// v6: force every device to discard stale cached builds from 2026-07-29
+const CACHE_NAME = 'sitaware-v6'
 const CACHE_URLS = [
   './index.html',
   './manifest.json',

@@ -1404,6 +1404,7 @@ const APP = {
   fireAlerts: null,
   errors: [],
   lastFetch: null,
+  locationNotice: null,
 
   USFS_URL: 'https://services9.arcgis.com/5rkKDrGuFJxI7V5b/arcgis/rest/services/S_USA_AdministrativeForest/FeatureServer/0/query',
   USFS_FALLBACK_URL: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_ForestSystemBoundaries_01/MapServer/0/query',
@@ -1590,9 +1591,11 @@ function initMap() {
 // ============================================================
 function gpsFailFallback(message) {
   // Every geolocation path exhausted. If a location is already known (cache or a
-  // previous fix), refresh its data instead of dead-ending at the tap hint.
+  // previous fix), refresh its data instead of dead-ending at the tap hint —
+  // but say so visibly: a silent wrong location is indistinguishable from a broken app.
   // Never guess from the IP address — carrier/ISP egress points land far away.
   if (APP.userLat !== null && APP.userLon !== null) {
+    APP.locationNotice = (message || 'GPS unavailable.') + ' Showing last known location — tap the map to change it.';
     loadLocationData(APP.userLat, APP.userLon);
     return;
   }
@@ -1748,9 +1751,11 @@ async function loadLocationData(lat, lon) {
     setUpdatedLabel(APP.lastFetch);
     saveCache();
 
-    // Show errors if any
-    if (APP.errors.length > 0) {
-      showErrorBanner(APP.errors.join(' | '));
+    // Show errors and location notices if any
+    const notices = APP.locationNotice ? [APP.locationNotice, ...APP.errors] : APP.errors.slice();
+    APP.locationNotice = null;
+    if (notices.length > 0) {
+      showErrorBanner(notices.join(' | '));
     } else {
       hideErrorBanner();
     }
@@ -1789,7 +1794,8 @@ function setUpdatedLabel(ts) {
 // ============================================================
 // LAST-GOOD DATA CACHE (localStorage)
 // ============================================================
-const CACHE_KEY = 'sitaware-cache-v1';
+// v2: discards saved locations poisoned by the removed IP fallback
+const CACHE_KEY = 'sitaware-cache-v2';
 const CACHE_MAX_AGE_MS = 24 * 3600000;
 const STALE_REFRESH_MS = 15 * 60000;
 
