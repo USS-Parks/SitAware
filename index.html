@@ -1398,6 +1398,9 @@ const APP = {
     'DOD':'Department of Defense','ST':'State Lands','LG':'Local Government','PVT':'Private','UND':'Undetermined'
   },
   REGION_GACC: {'01':'NRCC','02':'RMCC','03':'SWCC','04':'GBCC','05':'ONCC','06':'NWCC','08':'SACC','09':'EACC','10':'AKCC'},
+  // Name fragments for matching the forecast API's GACC list when the PSA
+  // identity fetch is down ('05'→North Ops mirrors REGION_GACC's simplification)
+  REGION_GACC_NAMES: {'01':'Northern Rockies','02':'Rocky Mountain','03':'Southwest','04':'Great Basin','05':'North Ops','06':'Northwest','08':'Southern','09':'Eastern','10':'Alaska'},
   REGION_NAMES: {
     '01':'Northern (R1)','02':'Rocky Mountain (R2)','03':'Southwestern (R3)',
     '04':'Intermountain (R4)','05':'Pacific Southwest (R5)',
@@ -2349,19 +2352,33 @@ const DRYNESS_MAP = {
 
 async function fetchGaccOutlook() {
   try {
-    const gaccName = APP.firePotentialData?.gacc || '';
-    const gaccLabel = APP.firePotentialData?.GACC_Label || '';
-    if (!gaccName && !gaccLabel) return;  // GACC identity absent this round: keep last-good
-    const gaccsResp = await fetchWithRetry(`${GACC_API}/gaccs?geo=false`);
-    if (!gaccsResp.ok) throw new Error(`gaccs ${gaccsResp.status}`);
-    const gaccs = await gaccsResp.json();
-    let gacc = (gaccs || []).find(g => g.name && g.name.trim().toLowerCase() === gaccName.trim().toLowerCase());
-    if (!gacc && gaccLabel) {
-      // e.g. KeyRAWS labels "North Ops" vs API "California North Ops" — accept only an unambiguous match
-      const cands = (gaccs || []).filter(g => g.name && g.name.toLowerCase().includes(gaccLabel.trim().toLowerCase()));
-      if (cands.length === 1) gacc = cands[0];
+    // The GACC identity has three independent sources so the PSA endpoint
+    // being down cannot take the outlook down with it:
+    // 1. the id cached with a previous outlook (cleared on real moves)
+    // 2. the live PSA fire-potential answer
+    // 3. the region's GACC from forest data
+    let gacc = APP.gaccOutlook?.gaccId
+      ? { gaccId: APP.gaccOutlook.gaccId, name: APP.gaccOutlook.gaccName || '' }
+      : null;
+    if (!gacc) {
+      const gaccName = APP.firePotentialData?.gacc || '';
+      let gaccLabel = APP.firePotentialData?.GACC_Label || '';
+      if (!gaccName && !gaccLabel) {
+        const region = String(APP.forestData?.properties?.REGION || '').padStart(2, '0');
+        gaccLabel = APP.REGION_GACC_NAMES[region] || '';
+      }
+      if (!gaccName && !gaccLabel) return;  // no identity available: keep last-good
+      const gaccsResp = await fetchWithRetry(`${GACC_API}/gaccs?geo=false`);
+      if (!gaccsResp.ok) throw new Error(`gaccs ${gaccsResp.status}`);
+      const gaccs = await gaccsResp.json();
+      gacc = (gaccs || []).find(g => g.name && g.name.trim().toLowerCase() === gaccName.trim().toLowerCase());
+      if (!gacc && gaccLabel) {
+        // e.g. KeyRAWS labels "North Ops" vs API "California North Ops" — accept only an unambiguous match
+        const cands = (gaccs || []).filter(g => g.name && g.name.toLowerCase().includes(gaccLabel.trim().toLowerCase()));
+        if (cands.length === 1) gacc = cands[0];
+      }
+      if (!gacc) return;  // ambiguous GACC match: keep last-good
     }
-    if (!gacc) return;  // ambiguous GACC match: keep last-good
     const lfResp = await fetchWithRetry(`${GACC_API}/gaccs/${gacc.gaccId}/latest-forecast`);
     if (!lfResp.ok) throw new Error(`latest-forecast ${lfResp.status}`);
     const lf = await lfResp.json();
