@@ -1362,8 +1362,6 @@ const APP = {
   map: null,
   mapAvailable: false,
   userMarker: null,
-  accCircle: null,
-  manualLock: false,
   forestLayer: null,
   tribalLayer: null,
   userLat: null,
@@ -1454,7 +1452,6 @@ function renderLocationResults(locations) {
       const lat = parseFloat(this.dataset.lat);
       const lon = parseFloat(this.dataset.lon);
       clearLocationError();
-      APP.manualLock = true;
       loadLocationData(lat, lon);
     });
   });
@@ -1496,7 +1493,6 @@ function useSelectedForest() {
   const [lat, lon] = sel.value.split(',').map(Number);
   clearLocationError();
   document.getElementById('locPanel').classList.remove('visible');
-  APP.manualLock = true;
   loadLocationData(lat, lon);
 }
 
@@ -1541,7 +1537,6 @@ function filterLocationsBySearch(query) {
       const lat = parseFloat(this.dataset.lat);
       const lon = parseFloat(this.dataset.lon);
       clearLocationError();
-      APP.manualLock = true;
       loadLocationData(lat, lon);
     });
   });
@@ -1595,6 +1590,7 @@ function geolocateUser() {
 
   // A cached last-good view may already be on screen; locate silently behind it.
   const blank = APP.userLat === null;
+  const bootLat = APP.userLat, bootLon = APP.userLon;
   if (blank) {
     const msg = document.getElementById('emptyMsg');
     if (msg) msg.textContent = 'Finding your location...';
@@ -1610,28 +1606,20 @@ function geolocateUser() {
 
   const watchId = navigator.geolocation.watchPosition(
     function(pos) {
-      // A hand-picked location wins for the whole session
-      if (APP.manualLock) { stop(); return; }
-      const lat = pos.coords.latitude, lon = pos.coords.longitude, acc = pos.coords.accuracy || 0;
-      const dm = APP.userLat === null ? Infinity :
-        Math.hypot((lat - APP.userLat) * 111320, (lon - APP.userLon) * 111320 * Math.cos(lat * Math.PI / 180));
-      // Coarse fix whose own error radius can't distinguish it from the
-      // current position (desktop wifi-positioning guessing a nearby town):
-      // don't move a good position on a guess — the 20 s deadline still
-      // refreshes data at the position we're keeping.
-      if (dm > 2200 && dm <= acc) return;
-      if (fixLat === null || dm > Math.max(acc, 2200)) {
-        console.log('Position fix:', lat, lon, 'accuracy:', acc, 'm');
+      // User set a location by hand while we waited on the prompt/fix: theirs wins.
+      if (fixLat === null && (APP.userLat !== bootLat || APP.userLon !== bootLon)) { stop(); return; }
+      const lat = pos.coords.latitude, lon = pos.coords.longitude;
+      const moved = fixLat === null || Math.abs(lat - fixLat) > 0.02 || Math.abs(lon - fixLon) > 0.02;
+      fixLat = lat; fixLon = lon;
+      if (moved) {
+        console.log('Position fix:', lat, lon, 'accuracy:', pos.coords.accuracy, 'm');
         loadLocationData(lat, lon);
       } else {
         // Refinement: nudge the marker to GPS truth without touching the view
         setMapLocation(lat, lon, true);
+        document.getElementById('mapCoords').textContent = `${lat.toFixed(4)}°N, ${Math.abs(lon).toFixed(4)}°W`;
       }
-      document.getElementById('mapCoords').textContent =
-        `${lat.toFixed(4)}°N, ${Math.abs(lon).toFixed(4)}°W` + (acc >= 1000 ? ` · ±${Math.round(acc / 1000)} km` : '');
-      setAccuracyCircle(lat, lon, acc);
-      fixLat = lat; fixLon = lon;
-      if (acc <= 30) stop();
+      if (pos.coords.accuracy <= 30) stop();
     },
     function(err) {
       console.log('Geolocation error:', err.code, err.message);
@@ -1644,7 +1632,7 @@ function geolocateUser() {
         // No fix is coming, but we know where they last were: refresh there.
         // (Removing the IP fallback also removed the refetch it triggered on
         // denied opens — without this, a cached view never updates or draws.)
-        else { loadLocationData(APP.userLat, APP.userLon); markCoordsLastKnown(); }
+        else loadLocationData(APP.userLat, APP.userLon);
       }
     },
     { enableHighAccuracy: true, maximumAge: 15000 }
@@ -1656,7 +1644,7 @@ function geolocateUser() {
     if (fixLat === null) {
       hideLoading();
       if (blank) gpsFailFallback();
-      else { loadLocationData(APP.userLat, APP.userLon); markCoordsLastKnown(); }  // no fix yet: refresh last position
+      else loadLocationData(APP.userLat, APP.userLon);  // no fix yet: refresh last position
     }
   }, 20000);
   // GPS refinement gets 75 s total, then the watch stops regardless.
@@ -1690,9 +1678,6 @@ async function loadLocationData(lat, lon) {
   document.getElementById('dataPanels').style.display = 'block';
   document.getElementById('skeletonLoaders').style.display = 'block';
 
-  // The accuracy circle describes a live fix, not a chosen position — always
-  // clear it; the watch redraws it if the next fix warrants one.
-  if (APP.mapAvailable && APP.accCircle) { APP.map.removeLayer(APP.accCircle); APP.accCircle = null; }
   // Clear previous layers only on a real move: a same-location refresh keeps
   // the last-good outlines on screen if a boundary refetch fails (stale, not blank).
   if (moved && APP.mapAvailable) {
@@ -1767,26 +1752,6 @@ function setMapLocation(lat, lon, keepView) {
   }).addTo(APP.map).bindPopup(`${lat.toFixed(4)}, ${lon.toFixed(4)}`);
 }
 
-// Google-style uncertainty circle: a ±40 km wifi-positioning guess must not
-// render identically to a ±5 m GPS lock. interactive:false so a big circle
-// can't swallow tap-to-set-location.
-// A position without a live fix behind it must say so — a stale point
-// rendered as current reads as "the app is wrong" from a moving user
-function markCoordsLastKnown() {
-  const el = document.getElementById('mapCoords');
-  if (el.textContent && !el.textContent.includes('last known')) el.textContent += ' · last known';
-}
-
-function setAccuracyCircle(lat, lon, accuracy) {
-  if (!APP.mapAvailable) return;
-  if (APP.accCircle) { APP.map.removeLayer(APP.accCircle); APP.accCircle = null; }
-  if (!accuracy || accuracy < 30) return;
-  APP.accCircle = L.circle([lat, lon], {
-    radius: accuracy, color: '#D4702A', weight: 1,
-    fillColor: '#D4702A', fillOpacity: 0.07, interactive: false
-  }).addTo(APP.map);
-}
-
 function setUpdatedLabel(ts) {
   const updEl = document.getElementById('headerUpdated');
   updEl.textContent = 'Updated ' + new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -1844,8 +1809,7 @@ function restoreCache() {
   APP.gaccOutlook = c.gaccOutlook || null;
 
   const coordsEl = document.getElementById('mapCoords');
-  // "last known" until a live fix lands and rewrites the label
-  coordsEl.textContent = `${c.lat.toFixed(4)}°N, ${Math.abs(c.lon).toFixed(4)}°W · last known`;
+  coordsEl.textContent = `${c.lat.toFixed(4)}°N, ${Math.abs(c.lon).toFixed(4)}°W`;
   coordsEl.classList.add('visible');
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('dataPanels').style.display = 'block';
@@ -1889,7 +1853,6 @@ function useManualCoords() {
   if (isNaN(lat) || isNaN(lon)) { showLocationError('Enter valid numbers for latitude and longitude.'); return; }
   if (lat < 17 || lat > 72 || lon < -180 || lon > -64) { showLocationError('Coordinates appear outside the US. Lat: 17-72, Lon: -180 to -64.'); return; }
   clearLocationError();
-  APP.manualLock = true;
   loadLocationData(lat, lon);
 }
 
@@ -1897,7 +1860,6 @@ function enableMapClick() {
   if (!APP.mapAvailable) return;
   APP.map.on('click', function(e) {
     if (e.latlng.lat > 17 && e.latlng.lat < 72 && e.latlng.lng > -180 && e.latlng.lng < -64) {
-      APP.manualLock = true;
       loadLocationData(e.latlng.lat, e.latlng.lng);
     }
   });
