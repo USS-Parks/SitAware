@@ -1629,6 +1629,10 @@ function geolocateUser() {
         stop();
         hideLoading();
         if (blank) gpsFailFallback('Location is blocked for this site in your browser settings. Tap the map to set your location.');
+        // No fix is coming, but we know where they last were: refresh there.
+        // (Removing the IP fallback also removed the refetch it triggered on
+        // denied opens — without this, a cached view never updates or draws.)
+        else loadLocationData(APP.userLat, APP.userLon);
       }
     },
     { enableHighAccuracy: true, maximumAge: 15000 }
@@ -1640,6 +1644,7 @@ function geolocateUser() {
     if (fixLat === null) {
       hideLoading();
       if (blank) gpsFailFallback();
+      else loadLocationData(APP.userLat, APP.userLon);  // no fix yet: refresh last position
     }
   }, 20000);
   // GPS refinement gets 75 s total, then the watch stops regardless.
@@ -3301,11 +3306,14 @@ document.addEventListener('DOMContentLoaded', () => {
   restoreCache();
   geolocateUser();
 
-  // Re-fetch when the app is foregrounded with stale data (installed-PWA case)
+  // Foregrounding a resurrected tab is how this app usually gets "opened":
+  // when data is stale, re-locate first so a user who moved gets data for
+  // where they are, not where they were. If no fix lands within the locate
+  // deadline (denied, no signal), refresh at the last known position instead.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && APP.userLat !== null &&
         APP.lastFetch && Date.now() - APP.lastFetch > STALE_REFRESH_MS) {
-      loadLocationData(APP.userLat, APP.userLon);
+      geolocateUser();  // its no-fix paths refresh at the last known position
     }
   });
 });
