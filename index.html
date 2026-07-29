@@ -1952,7 +1952,10 @@ async function fetchForestData() {
       }
     } catch (err) { continue; }
   }
-  APP.forestData = null;
+  // Total refresh failure: keep the last-good same-spot identification (a
+  // real move already cleared it); only hunt for a land identity when there
+  // is none to keep. A failed source degrades to stale, never to blank.
+  if (APP.forestData) return;
   await fetchSMALandData();
   if (!APP.landData) await findNearestForest();
 }
@@ -1962,7 +1965,7 @@ async function fetchSMALandData() {
     const geomJson = encodeURIComponent(JSON.stringify({ x: APP.userLon, y: APP.userLat, spatialReference: { wkid: 4326 } }));
     const url = `${APP.SMA_URL}?geometry=${geomJson}&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&outFields=ADMIN_UNIT_NAME,ADMIN_AGENCY_CODE,ADMIN_DEPT_CODE,ADMIN_UNIT_TYPE,SHAPE_Area,ADMIN_ST&returnGeometry=false&inSR=4326&f=json`;
     const resp = await fetchWithRetry(url);
-    if (!resp.ok) { APP.landData = null; return; }
+    if (!resp.ok) { APP.errors.push('BLM/SMA data unavailable'); return; }
     const data = await resp.json();
     if (data.features && data.features.length > 0) {
       const attrs = data.features[0].attributes;
@@ -1974,7 +1977,7 @@ async function fetchSMALandData() {
         state: attrs.ADMIN_ST || null, acres: attrs.SHAPE_Area ? Math.round(attrs.SHAPE_Area * 0.000247105) : null
       };
     } else { APP.landData = null; }
-  } catch (err) { APP.landData = null; APP.errors.push('BLM/SMA data unavailable'); }
+  } catch (err) { APP.errors.push('BLM/SMA data unavailable'); }
 }
 
 async function findNearestForest() {
@@ -2047,7 +2050,7 @@ async function fetchTribalData() {
       };
       drawTribalBoundary(tribalFeature);
     } else { APP.tribalData = null; }
-  } catch (err) { APP.tribalData = null; APP.errors.push('Tribal boundary data unavailable'); }
+  } catch (err) { APP.errors.push('Tribal boundary data unavailable'); }
 }
 
 function drawTribalBoundary(feature) {
@@ -2124,24 +2127,24 @@ async function fetchFireWeatherForecast() {
   try {
     const wfo = APP.weatherMeta?.gridId;
     const fwzUrl = APP.weatherMeta?.fireZoneUrl;
-    if (!wfo) { APP.fwfData = null; return; }
+    if (!wfo) return;  // weather chain absent this round: keep last-good FWF
 
     // Get the fire weather zone code from the full URL
     const fwzCode = fwzUrl ? fwzUrl.split('/').pop() : APP.weatherMeta?.fireZone;
 
     // Fetch latest FWF product for this WFO
     const listResp = await fetchWithRetry(`https://api.weather.gov/products?type=FWF&location=${wfo}&limit=1`);
-    if (!listResp.ok) { APP.fwfData = null; APP.errors.push('Fire weather forecast unavailable'); return; }
+    if (!listResp.ok) { APP.errors.push('Fire weather forecast unavailable'); return; }
     const listData = await listResp.json();
     const products = listData['@graph'] || [];
-    if (products.length === 0) { APP.fwfData = null; return; }
+    if (products.length === 0) return;  // transient empty listing: keep last-good
 
     const productId = products[0].id;
     const issuedTime = products[0].issuanceTime;
 
     // Fetch the actual product text
     const prodResp = await fetchWithRetry(`https://api.weather.gov/products/${productId}`);
-    if (!prodResp.ok) { APP.fwfData = null; APP.errors.push('Fire weather forecast unavailable'); return; }
+    if (!prodResp.ok) { APP.errors.push('Fire weather forecast unavailable'); return; }
     const prodData = await prodResp.json();
     const fullText = prodData.productText || '';
 
@@ -2254,7 +2257,6 @@ async function fetchFireWeatherForecast() {
 
   } catch (err) {
     console.error('FWF fetch error:', err);
-    APP.fwfData = null;
     APP.errors.push('Fire weather forecast unavailable');
   }
 }
@@ -2308,7 +2310,7 @@ async function fetchFirePotential() {
       const d = await r.json();
       return (d.features && d.features.length > 0) ? d.features[0].attributes : null;
     }));
-    if (dayResults.every(d => d === null)) { APP.firePotentialData = null; return; }
+    if (dayResults.every(d => d === null)) { APP.errors.push('Fire potential data unavailable'); return; }
     const fp = {
       PSA_NAME: psaMeta.PSA_NAME || '', NAT_CODE: psaMeta.NAT_CODE || (dayResults.find(d => d && d.nat_code)?.nat_code) || '',
       GACC_Label: psaMeta.GACC_Label || '',
@@ -2326,7 +2328,6 @@ async function fetchFirePotential() {
     APP.firePotentialData = fp;
   } catch (err) {
     console.error('NWCG fire potential fetch error:', err);
-    APP.firePotentialData = null;
     APP.errors.push('Fire potential data unavailable');
   }
 }
@@ -2350,7 +2351,7 @@ async function fetchGaccOutlook() {
   try {
     const gaccName = APP.firePotentialData?.gacc || '';
     const gaccLabel = APP.firePotentialData?.GACC_Label || '';
-    if (!gaccName && !gaccLabel) { APP.gaccOutlook = null; return; }
+    if (!gaccName && !gaccLabel) return;  // GACC identity absent this round: keep last-good
     const gaccsResp = await fetchWithRetry(`${GACC_API}/gaccs?geo=false`);
     if (!gaccsResp.ok) throw new Error(`gaccs ${gaccsResp.status}`);
     const gaccs = await gaccsResp.json();
@@ -2360,7 +2361,7 @@ async function fetchGaccOutlook() {
       const cands = (gaccs || []).filter(g => g.name && g.name.toLowerCase().includes(gaccLabel.trim().toLowerCase()));
       if (cands.length === 1) gacc = cands[0];
     }
-    if (!gacc) { APP.gaccOutlook = null; return; }
+    if (!gacc) return;  // ambiguous GACC match: keep last-good
     const lfResp = await fetchWithRetry(`${GACC_API}/gaccs/${gacc.gaccId}/latest-forecast`);
     if (!lfResp.ok) throw new Error(`latest-forecast ${lfResp.status}`);
     const lf = await lfResp.json();
@@ -2379,7 +2380,6 @@ async function fetchGaccOutlook() {
     };
   } catch (err) {
     console.error('GACC outlook fetch error:', err);
-    APP.gaccOutlook = null;
     APP.errors.push('GACC outlook unavailable');
   }
 }
