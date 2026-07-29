@@ -670,6 +670,9 @@ html, body {
 .swc-val-warn { color: var(--orange-light); }
 .swc-val-danger { color: var(--red-text); }
 .swc-val-na { color: var(--text-dim); font-style: italic; font-weight: 400; }
+/* Body-copy color that flips with the theme — use instead of inline var(--cream) */
+.ink { color: var(--cream); }
+.swc-body-text { padding: 10px 12px; font-size: 12px; line-height: 1.5; }
 .swc-derived {
   font-size: 9px;
   color: var(--text-dim);
@@ -904,6 +907,10 @@ body.light-mode .swc-section-title { color: var(--black); }
 body.light-mode .swc-row { border-bottom-color: #e8e4db; }
 body.light-mode .swc-row-value { color: var(--black); }
 body.light-mode .swc-row-label { color: #666; }
+body.light-mode .ink { color: var(--black); }
+body.light-mode .gacc-grid-label { color: #555; }
+body.light-mode .gacc-grid-label.gacc-mine { color: var(--orange-dark); }
+body.light-mode .gacc-legend { color: #555; }
 body.light-mode .forest-banner { background: var(--forest-light); }
 body.light-mode .source-footer { color: #999; }
 body.light-mode .source-footer a { color: var(--orange-dark); }
@@ -1078,7 +1085,7 @@ body.light-mode .skeleton {
       <!-- PAL description + restrictions -->
       <div id="palSection" style="margin-top:10px;">
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">&#x1F6A8; Project Activity Level: <span style="font-weight:400;">Always exercise caution when operating chainsaw powerheads or heavy equipment in the forest during fire season.</span></div>
-        <div id="palDescription" style="font-size:13px;line-height:1.5;color:var(--cream);"></div>
+        <div id="palDescription" class="ink" style="font-size:13px;line-height:1.5;"></div>
         <div class="pal-restrictions" id="palRestrictions"></div>
         <div class="pal-detail pro-only" id="palProDetail"></div>
       </div>
@@ -2675,7 +2682,7 @@ function renderGaccOutlook() {
         <span class="swc-section-title">Fuels — dead & live</span>
         <span class="swc-section-chevron">▼</span>
       </div>
-      <div class="swc-section-body"><div style="padding:10px 12px;font-size:12px;color:var(--cream);line-height:1.5;">${htmlToParagraphs(g.fuelsHtml)}</div></div>
+      <div class="swc-section-body"><div class="swc-body-text ink">${htmlToParagraphs(g.fuelsHtml)}</div></div>
     </div>`;
   }
   if (g.weatherHtml) {
@@ -2684,7 +2691,7 @@ function renderGaccOutlook() {
         <span class="swc-section-title">Weather discussion</span>
         <span class="swc-section-chevron">▼</span>
       </div>
-      <div class="swc-section-body"><div style="padding:10px 12px;font-size:12px;color:var(--cream);line-height:1.5;">${htmlToParagraphs(g.weatherHtml)}</div></div>
+      <div class="swc-section-body"><div class="swc-body-text ink">${htmlToParagraphs(g.weatherHtml)}</div></div>
     </div>`;
   }
   html += `<div style="font-size:10px;color:var(--text-dim);margin-top:4px;">Source: NWCG Predictive Services · <a href="https://fsapps.nwcg.gov/psp/npsg/forecast/#/outlooks?state=forecast&gaccId=${g.gaccId}" target="_blank" rel="noopener noreferrer" style="color:var(--orange-light);">Full outlook</a></div>`;
@@ -2883,7 +2890,7 @@ function renderDetailedForecast() {
   // Show first 4 periods (Today, Tonight, Tomorrow, Tomorrow Night)
   const html = periods.slice(0, 4).map(p => {
     const pop = p.probabilityOfPrecipitation?.value;
-    let header = `<strong style="color:var(--cream);">${p.name}</strong>`;
+    let header = `<strong class="ink">${p.name}</strong>`;
     header += ` <span style="color:var(--orange-light);">${p.temperature}\u00B0${p.temperatureUnit}</span>`;
     if (pop !== null && pop > 0) header += ` <span style="color:var(--pal-c);">\u{1F4A7} ${pop}%</span>`;
     return `<div style="margin-bottom:10px;">${header}<br><span>${p.detailedForecast}</span></div>`;
@@ -2946,7 +2953,7 @@ function renderFireIndices() {
           <span class="swc-section-chevron">\u25bc</span>
         </div>
         <div class="swc-section-body">
-          <div style="padding:10px 12px;font-size:12px;color:var(--cream);line-height:1.5;">${fwf.discussion}</div>
+          <div class="swc-body-text ink">${fwf.discussion}</div>
         </div>
       </div>`;
     }
