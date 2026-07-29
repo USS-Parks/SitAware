@@ -1,7 +1,7 @@
 // SITAWARE Service Worker
 // Handles offline caching and notification scheduling
 
-const CACHE_NAME = 'sitaware-v7'
+const CACHE_NAME = 'sitaware-v8'
 const CACHE_URLS = [
   './index.html',
   './manifest.json',
