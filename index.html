@@ -1767,7 +1767,8 @@ async function loadLocationData(lat, lon) {
 
 function setMapLocation(lat, lon) {
   if (!APP.mapAvailable) return;
-  APP.map.setView([lat, lon], 10);
+  // Zoom 9 ≈ 60-mile regional view: user centered, coast-to-forest context visible
+  APP.map.setView([lat, lon], 9);
   if (APP.userMarker) APP.map.removeLayer(APP.userMarker);
   APP.userMarker = L.marker([lat, lon], {
     icon: L.divIcon({
@@ -2010,9 +2011,8 @@ function drawForestBoundary(feature) {
   APP.forestLayer = L.geoJSON(feature, {
     style: { color: '#2E5E3E', weight: 2.5, fillColor: '#2E5E3E', fillOpacity: 0.08, dashArray: '6 3' }
   }).addTo(APP.map);
-  const bounds = APP.forestLayer.getBounds();
-  if (APP.userMarker) bounds.extend(APP.userMarker.getLatLng());
-  APP.map.fitBounds(bounds, { padding: [30, 30] });
+  // No fitBounds: the view stays user-centered at the default zoom instead of
+  // zooming out to swallow a 140-mile forest (and jumping as layers race in)
 }
 
 // ============================================================
@@ -2054,10 +2054,6 @@ function drawTribalBoundary(feature) {
   APP.tribalLayer = L.geoJSON(feature, {
     style: { color: '#D4702A', weight: 2.5, fillColor: '#D4702A', fillOpacity: 0.06, dashArray: '8 4 2 4' }
   }).addTo(APP.map);
-  const bounds = APP.tribalLayer.getBounds();
-  if (APP.forestLayer) bounds.extend(APP.forestLayer.getBounds());
-  if (APP.userMarker) bounds.extend(APP.userMarker.getLatLng());
-  APP.map.fitBounds(bounds, { padding: [30, 30] });
 }
 
 // ============================================================
