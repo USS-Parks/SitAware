@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SITAWARE Network Check</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; background: #1a2e22; color: #f0ead6; margin: 0; padding: 16px; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p { font-size: 13px; color: #b8c4ba; margin: 4px 0 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #2e4636; }
+  th { color: #b8c4ba; font-weight: 600; font-size: 11px; text-transform: uppercase; }
+  .pass { color: #7fd48a; font-weight: 700; }
+  .fail { color: #ff6b5e; font-weight: 700; }
+  .run { color: #e8c15a; }
+  #verdict { margin-top: 16px; padding: 12px; border-radius: 8px; background: #24382c; font-size: 14px; line-height: 1.5; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<h1>SITAWARE Network Check</h1>
+<p>Tests every federal host the app uses, one at a time, from this device on this network. Wait for the verdict, then screenshot this page.</p>
+<table>
+  <thead><tr><th>Source</th><th>Result</th><th class="num">Time</th><th class="num">Size</th></tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+<div id="verdict">Running…</div>
+<script>
+// Sequential on purpose: isolates each host from contention with the others.
+// Small and large fetches per host distinguish "host blocked" from
+// "large/long transfers killed" (content-inspection filtering).
+const TESTS = [
+  { name: 'weather.gov point (small)', type: 'fetch',
+    url: 'https://api.weather.gov/points/40.9214,-123.6191' },
+  { name: 'weather.gov FWF product (large text)', type: 'fwf' },
+  { name: 'USFS boundary, simplified (medium)', type: 'fetch',
+    url: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_ForestSystemBoundaries_01/MapServer/0/query?geometry=%7B%22x%22%3A-123.6191%2C%22y%22%3A40.9214%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&outFields=FORESTNAME&maxAllowableOffset=0.001&geometryPrecision=5&returnGeometry=true&outSR=4326&inSR=4326&f=geojson' },
+  { name: 'fsapps PSA query (small)', type: 'fetch',
+    url: 'https://fsapps.nwcg.gov/psp/arcgis/rest/services/npsg/PSA_GACC_KeyRAWS/MapServer/1/query?geometry=-123.6191,40.9214&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&outFields=PSA_NAME,GACC_Label&returnGeometry=false&f=json' },
+  { name: 'fsapps forecast API (small)', type: 'fetch',
+    url: 'https://fsapps.nwcg.gov/psp/npsg/forecast/api/gaccs?geo=false' },
+  { name: 'fsapps CONUS PNG (large image)', type: 'img',
+    url: 'https://fsapps.nwcg.gov/psp/npsg/data/conus-sevenday/d1_0.png' },
+  { name: 'BLM SMA query (small)', type: 'fetch',
+    url: 'https://gis.blm.gov/arcgis/rest/services/lands/BLM_Natl_SMA_LimitedScale/MapServer/1/query?geometry=%7B%22x%22%3A-123.6191%2C%22y%22%3A40.9214%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&outFields=ADMIN_UNIT_NAME&returnGeometry=false&inSR=4326&f=json' },
+  { name: 'Census tribal query (small)', type: 'fetch',
+    url: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/AIANNHA/MapServer/47/query?geometry=-123.6191,40.9214&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&inSR=4326&outFields=NAME&returnGeometry=false&f=geojson' }
+];
+
+const rowsEl = document.getElementById('rows');
+const results = [];
+
+function addRow(name) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${name}</td><td class="run">running…</td><td class="num">–</td><td class="num">–</td>`;
+  rowsEl.appendChild(tr);
+  return tr;
+}
+function setRow(tr, ok, ms, kb, note) {
+  tr.children[1].innerHTML = ok ? '<span class="pass">PASS</span>' : `<span class="fail">FAIL</span>${note ? ' <span style="font-size:11px;color:#b8c4ba;">' + note + '</span>' : ''}`;
+  tr.children[2].textContent = ms !== null ? (ms / 1000).toFixed(1) + ' s' : '–';
+  tr.children[3].textContent = kb !== null ? kb.toFixed(0) + ' KB' : '–';
+}
+
+function timedFetch(url) {
+  const t0 = performance.now();
+  return fetch(url, { signal: AbortSignal.timeout ? AbortSignal.timeout(60000) : undefined })
+    .then(r => r.ok ? r.blob().then(b => ({ ok: true, ms: performance.now() - t0, kb: b.size / 1024 }))
+                    : { ok: false, ms: performance.now() - t0, kb: null, note: 'HTTP ' + r.status })
+    .catch(e => ({ ok: false, ms: performance.now() - t0, kb: null, note: e.name === 'TimeoutError' ? 'timeout at 60 s' : 'connection failed' }));
+}
+
+function timedImg(url) {
+  return new Promise(resolve => {
+    const t0 = performance.now();
+    const img = new Image();
+    const timer = setTimeout(() => { img.src = ''; resolve({ ok: false, ms: performance.now() - t0, kb: null, note: 'timeout at 60 s' }); }, 60000);
+    img.onload = () => { clearTimeout(timer); resolve({ ok: true, ms: performance.now() - t0, kb: null }); };
+    img.onerror = () => { clearTimeout(timer); resolve({ ok: false, ms: performance.now() - t0, kb: null, note: 'blocked or reset' }); };
+    img.src = url + '?nc=' + Date.now();
+  });
+}
+
+async function fwfTest() {
+  const t0 = performance.now();
+  try {
+    const list = await fetch('https://api.weather.gov/products?type=FWF&location=EKA&limit=1', { signal: AbortSignal.timeout(60000) });
+    if (!list.ok) return { ok: false, ms: performance.now() - t0, kb: null, note: 'listing HTTP ' + list.status };
+    const d = await list.json();
+    const id = (d['@graph'] || [])[0]?.id;
+    if (!id) return { ok: false, ms: performance.now() - t0, kb: null, note: 'no product listed' };
+    const prod = await fetch('https://api.weather.gov/products/' + id, { signal: AbortSignal.timeout(60000) });
+    if (!prod.ok) return { ok: false, ms: performance.now() - t0, kb: null, note: 'product HTTP ' + prod.status };
+    const b = await prod.blob();
+    return { ok: true, ms: performance.now() - t0, kb: b.size / 1024 };
+  } catch (e) {
+    return { ok: false, ms: performance.now() - t0, kb: null, note: e.name === 'TimeoutError' ? 'timeout at 60 s' : 'connection failed' };
+  }
+}
+
+async function run() {
+  for (const t of TESTS) {
+    const tr = addRow(t.name);
+    const r = t.type === 'img' ? await timedImg(t.url) : t.type === 'fwf' ? await fwfTest() : await timedFetch(t.url);
+    results.push({ name: t.name, ...r });
+    setRow(tr, r.ok, r.ms, r.kb, r.note);
+  }
+  const fails = results.filter(r => !r.ok);
+  const bigFails = fails.filter(r => /large|medium/.test(r.name));
+  const smallFails = fails.filter(r => !/large|medium/.test(r.name));
+  let v;
+  if (fails.length === 0) {
+    v = 'Everything passed on this network. If the app still misbehaves here, the problem is in the app — screenshot this and send it.';
+  } else if (smallFails.length === 0 && bigFails.length > 0) {
+    v = 'Small requests pass but large transfers fail: consistent with content-inspection filtering (DPI/proxy) on this network killing big or long responses. Show this screenshot to IT and ask them to exempt these hosts from inspection: ' +
+        [...new Set(bigFails.map(r => r.name))].join('; ') + '.';
+  } else {
+    const hosts = [...new Set(smallFails.map(r => r.name.split(' ')[0]))].join(', ');
+    v = 'Some hosts fail outright on this network (' + hosts + ') while others pass: consistent with per-host blocking. Show this screenshot to IT with the failing host names.';
+  }
+  document.getElementById('verdict').textContent = v;
+}
+run();
+</script>
+</body>
+</html>
