@@ -1343,6 +1343,7 @@ const APP = {
   hourlyData: null,
   fireAlerts: null,
   errors: [],
+  lastFetch: null,
 
   USFS_URL: 'https://services9.arcgis.com/5rkKDrGuFJxI7V5b/arcgis/rest/services/S_USA_AdministrativeForest/FeatureServer/0/query',
   USFS_FALLBACK_URL: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_ForestSystemBoundaries_01/MapServer/0/query',
@@ -1647,7 +1648,15 @@ async function geolocateUser() {
 // CORE DATA LOADING
 // ============================================================
 async function loadLocationData(lat, lon) {
-  showLoading('Identifying jurisdiction...');
+  showLoading('Loading conditions...');
+  // Location changed: previous location's data must not survive a partial fetch failure.
+  // Same location: keep last-good data so a failed source degrades to stale, not blank.
+  const moved = APP.userLat === null || Math.abs(APP.userLat - lat) > 0.02 || Math.abs(APP.userLon - lon) > 0.02;
+  if (moved) {
+    APP.forestData = APP.landData = APP.tribalData = null;
+    APP.weatherMeta = APP.forecastData = APP.hourlyData = APP.gridData = null;
+    APP.alertsData = APP.firePotentialData = APP.fwfData = null;
+  }
   APP.userLat = lat;
   APP.userLon = lon;
   APP.errors = [];
@@ -1669,32 +1678,22 @@ async function loadLocationData(lat, lon) {
   }
 
   // Update map
-  if (APP.mapAvailable) {
-    APP.map.setView([lat, lon], 10);
-    if (APP.userMarker) APP.map.removeLayer(APP.userMarker);
-    APP.userMarker = L.marker([lat, lon], {
-      icon: L.divIcon({
-        className: 'user-marker',
-        html: '<div style="width:14px;height:14px;background:var(--orange);border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.4);"></div>',
-        iconSize: [14, 14], iconAnchor: [7, 7]
-      })
-    }).addTo(APP.map).bindPopup(`${lat.toFixed(4)}, ${lon.toFixed(4)}`);
-  }
+  setMapLocation(lat, lon);
 
   // Hide the map tap hint once location is set
   const hint = document.getElementById('mapTapHint');
   if (hint) hint.style.display = 'none';
 
   try {
-    await Promise.all([fetchForestData(), fetchTribalData()]);
-    showLoading('Pulling weather data...');
-    await fetchWeatherData();
-    showLoading('Checking alerts...');
-    await fetchAlerts();
-    showLoading('Fetching fire weather forecast...');
-    await fetchFireWeatherForecast();
-    showLoading('Fetching fire potential...');
-    await fetchFirePotential();
+    // Independent sources run in parallel; FWF chains after weather (needs gridId).
+    // allSettled so one hung or failed source can't block or blank the others.
+    await Promise.allSettled([
+      fetchForestData(),
+      fetchTribalData(),
+      fetchWeatherData().then(() => fetchFireWeatherForecast()),
+      fetchAlerts(),
+      fetchFirePotential()
+    ]);
 
     // Hide skeletons, render data
     document.getElementById('skeletonLoaders').style.display = 'none';
@@ -1702,10 +1701,9 @@ async function loadLocationData(lat, lon) {
 
     // Update header context
     updateHeaderContext();
-    const updEl = document.getElementById('headerUpdated');
-    updEl.textContent = 'Updated just now';
-    updEl.classList.add('visible');
-    document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
+    APP.lastFetch = Date.now();
+    setUpdatedLabel(APP.lastFetch);
+    saveCache();
 
     // Show errors if any
     if (APP.errors.length > 0) {
@@ -1722,6 +1720,80 @@ async function loadLocationData(lat, lon) {
   } finally {
     hideLoading();
   }
+}
+
+function setMapLocation(lat, lon) {
+  if (!APP.mapAvailable) return;
+  APP.map.setView([lat, lon], 10);
+  if (APP.userMarker) APP.map.removeLayer(APP.userMarker);
+  APP.userMarker = L.marker([lat, lon], {
+    icon: L.divIcon({
+      className: 'user-marker',
+      html: '<div style="width:14px;height:14px;background:var(--orange);border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.4);"></div>',
+      iconSize: [14, 14], iconAnchor: [7, 7]
+    })
+  }).addTo(APP.map).bindPopup(`${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+}
+
+function setUpdatedLabel(ts) {
+  const updEl = document.getElementById('headerUpdated');
+  updEl.textContent = 'Updated ' + new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  updEl.classList.add('visible');
+  document.getElementById('lastUpdated').textContent = new Date(ts).toLocaleString();
+}
+
+// ============================================================
+// LAST-GOOD DATA CACHE (localStorage)
+// ============================================================
+const CACHE_KEY = 'sitaware-cache-v1';
+const CACHE_MAX_AGE_MS = 24 * 3600000;
+const STALE_REFRESH_MS = 15 * 60000;
+
+function saveCache() {
+  const slim = {
+    lat: APP.userLat, lon: APP.userLon, t: APP.lastFetch,
+    // Forest geometry can be MB-scale; keep properties only (boundary just isn't redrawn on restore)
+    forestData: APP.forestData ? { type: 'Feature', properties: APP.forestData.properties } : null,
+    landData: APP.landData, tribalData: APP.tribalData,
+    weatherMeta: APP.weatherMeta, forecastData: APP.forecastData, hourlyData: APP.hourlyData,
+    gridData: APP.gridData, alertsData: APP.alertsData,
+    firePotentialData: APP.firePotentialData, fwfData: APP.fwfData
+  };
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(slim));
+  } catch (e) {
+    // Quota: retry without the largest payload
+    try {
+      slim.gridData = null;
+      localStorage.setItem(CACHE_KEY, JSON.stringify(slim));
+    } catch (e2) { /* give up silently */ }
+  }
+}
+
+function restoreCache() {
+  let c;
+  try { c = JSON.parse(localStorage.getItem(CACHE_KEY)); } catch (e) { return false; }
+  if (!c || typeof c.lat !== 'number' || typeof c.lon !== 'number' || !c.t) return false;
+  if (Date.now() - c.t > CACHE_MAX_AGE_MS) return false;
+
+  APP.userLat = c.lat; APP.userLon = c.lon; APP.lastFetch = c.t;
+  APP.forestData = c.forestData; APP.landData = c.landData; APP.tribalData = c.tribalData;
+  APP.weatherMeta = c.weatherMeta; APP.forecastData = c.forecastData; APP.hourlyData = c.hourlyData;
+  APP.gridData = c.gridData; APP.alertsData = c.alertsData;
+  APP.firePotentialData = c.firePotentialData; APP.fwfData = c.fwfData;
+
+  const coordsEl = document.getElementById('mapCoords');
+  coordsEl.textContent = `${c.lat.toFixed(4)}°N, ${Math.abs(c.lon).toFixed(4)}°W`;
+  coordsEl.classList.add('visible');
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('dataPanels').style.display = 'block';
+  setMapLocation(c.lat, c.lon);
+  const hint = document.getElementById('mapTapHint');
+  if (hint) hint.style.display = 'none';
+  renderAll();
+  updateHeaderContext();
+  setUpdatedLabel(c.t);
+  return true;
 }
 
 function updateHeaderContext() {
@@ -1820,7 +1892,8 @@ async function fetchForestData() {
   const endpoints = [APP.USFS_URL, APP.USFS_FALLBACK_URL];
   for (const endpoint of endpoints) {
     try {
-      const resp = await fetch(`${endpoint}?${params}`);
+      // retries=0: the endpoint list is the retry; this call just adds the timeout
+      const resp = await fetchWithRetry(`${endpoint}?${params}`, 0);
       if (!resp.ok) continue;
       const data = await resp.json();
       if (data.features && data.features.length > 0) {
@@ -1872,7 +1945,7 @@ async function findNearestForest() {
   const endpoints = [APP.USFS_URL, APP.USFS_FALLBACK_URL];
   for (const endpoint of endpoints) {
     try {
-      const resp = await fetch(`${endpoint}?${params}`);
+      const resp = await fetchWithRetry(`${endpoint}?${params}`, 0);
       if (!resp.ok) continue;
       const data = await resp.json();
       if (data.features && data.features.length > 0) {
@@ -1903,16 +1976,19 @@ function drawForestBoundary(feature) {
 async function fetchTribalData() {
   try {
     const baseParams = `geometry=${APP.userLon},${APP.userLat}&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&inSR=4326&outSR=4326&outFields=NAME,BASENAME,GEOID,AREALAND&returnGeometry=true&maxAllowableOffset=0.005&f=geojson`;
-    const [fedResp, stResp] = await Promise.all([
+    // allSettled: one endpoint's network failure must not discard the other's result
+    const [fedR, stR] = await Promise.allSettled([
       fetchWithRetry(`${APP.TRIBAL_URL}/36/query?${baseParams}`),
       fetchWithRetry(`${APP.TRIBAL_URL}/40/query?${baseParams}`)
     ]);
+    const fedResp = fedR.status === 'fulfilled' ? fedR.value : null;
+    const stResp = stR.status === 'fulfilled' ? stR.value : null;
     let tribalFeature = null, tribalSource = null;
-    if (fedResp.ok) {
+    if (fedResp && fedResp.ok) {
       const d = await fedResp.json();
       if (d.features && d.features.length > 0) { tribalFeature = d.features[0]; tribalSource = 'federal'; }
     }
-    if (!tribalFeature && stResp.ok) {
+    if (!tribalFeature && stResp && stResp.ok) {
       const d = await stResp.json();
       if (d.features && d.features.length > 0) { tribalFeature = d.features[0]; tribalSource = 'state'; }
     }
@@ -1944,7 +2020,8 @@ function drawTribalBoundary(feature) {
 // ============================================================
 async function fetchWeatherData() {
   try {
-    const pointResp = await fetch(`https://api.weather.gov/points/${APP.userLat.toFixed(4)},${APP.userLon.toFixed(4)}`);
+    // The points call gates the whole weather chain (and FWF) — it gets full retries
+    const pointResp = await fetchWithRetry(`https://api.weather.gov/points/${APP.userLat.toFixed(4)},${APP.userLon.toFixed(4)}`);
     if (!pointResp.ok) throw new Error(`Points API returned ${pointResp.status}`);
     const pointData = await pointResp.json();
     const props = pointData.properties;
@@ -1957,20 +2034,28 @@ async function fetchWeatherData() {
       state: props.relativeLocation?.properties?.state || '--'
     };
     const trustedPrefix = 'https://api.weather.gov/';
-    if (props.forecast && props.forecast.startsWith(trustedPrefix)) {
-      const r = await fetchWithRetry(props.forecast);
-      if (r.ok) APP.forecastData = await r.json();
-    }
-    if (props.forecastHourly && props.forecastHourly.startsWith(trustedPrefix)) {
-      const r = await fetchWithRetry(props.forecastHourly);
-      if (r.ok) APP.hourlyData = await r.json();
-      else APP.errors.push('Hourly forecast unavailable');
-    }
-    if (props.forecastGridData && props.forecastGridData.startsWith(trustedPrefix)) {
-      const r = await fetchWithRetry(props.forecastGridData);
-      if (r.ok) APP.gridData = await r.json();
-      else APP.errors.push('Gridpoint data unavailable');
-    }
+    await Promise.allSettled([
+      (async () => {
+        if (props.forecast && props.forecast.startsWith(trustedPrefix)) {
+          const r = await fetchWithRetry(props.forecast);
+          if (r.ok) APP.forecastData = await r.json();
+        }
+      })(),
+      (async () => {
+        if (props.forecastHourly && props.forecastHourly.startsWith(trustedPrefix)) {
+          const r = await fetchWithRetry(props.forecastHourly);
+          if (r.ok) APP.hourlyData = await r.json();
+          else APP.errors.push('Hourly forecast unavailable');
+        }
+      })(),
+      (async () => {
+        if (props.forecastGridData && props.forecastGridData.startsWith(trustedPrefix)) {
+          const r = await fetchWithRetry(props.forecastGridData);
+          if (r.ok) APP.gridData = await r.json();
+          else APP.errors.push('Gridpoint data unavailable');
+        }
+      })()
+    ]);
   } catch (err) {
     console.error('Weather fetch error:', err);
     APP.errors.push('Weather data failed to load');
@@ -1980,7 +2065,8 @@ async function fetchWeatherData() {
 async function fetchWithRetry(url, retries = 2) {
   for (let i = 0; i <= retries; i++) {
     try {
-      const resp = await fetch(url);
+      // Timeout so a hung upstream (common on federal GIS servers under load) fails fast
+      const resp = await fetch(url, { signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined });
       if (resp.ok || i === retries) return resp;
       await new Promise(r => setTimeout(r, 1000 * (i + 1)));
     } catch (err) {
@@ -2001,7 +2087,7 @@ async function fetchFireWeatherForecast() {
 
     // Fetch latest FWF product for this WFO
     const listResp = await fetchWithRetry(`https://api.weather.gov/products?type=FWF&location=${wfo}&limit=1`);
-    if (!listResp.ok) { APP.fwfData = null; return; }
+    if (!listResp.ok) { APP.fwfData = null; APP.errors.push('Fire weather forecast unavailable'); return; }
     const listData = await listResp.json();
     const products = listData['@graph'] || [];
     if (products.length === 0) { APP.fwfData = null; return; }
@@ -2011,7 +2097,7 @@ async function fetchFireWeatherForecast() {
 
     // Fetch the actual product text
     const prodResp = await fetchWithRetry(`https://api.weather.gov/products/${productId}`);
-    if (!prodResp.ok) { APP.fwfData = null; return; }
+    if (!prodResp.ok) { APP.fwfData = null; APP.errors.push('Fire weather forecast unavailable'); return; }
     const prodData = await prodResp.json();
     const fullText = prodData.productText || '';
 
@@ -2026,20 +2112,26 @@ async function fetchFireWeatherForecast() {
     if (fwzCode) {
       const sections = fullText.split('$$');
       for (const section of sections) {
-        if (section.indexOf(fwzCode) !== -1) {
-          const sLines = section.trim().split('\n');
-          // First line: zone code, second: zone name, third: date, then blank, then forecast
-          if (sLines.length > 3) {
-            zoneName = sLines[1].replace(/-$/g, '').trim();
-            // Find where forecast periods start (lines starting with .)
-            let startIdx = 3;
-            for (let li = 3; li < sLines.length; li++) {
-              if (sLines[li].match(/^\.[A-Z]/)) { startIdx = li; break; }
-            }
-            zoneText = sLines.slice(startIdx).join('\n').trim();
-          }
-          break;
+        const sLines = section.trim().split('\n');
+        // UGC header may span lines ("CAZ402-403-\n404-291315-"); collect them all
+        let ugcStr = '';
+        let headEnd = 0;
+        while (headEnd < sLines.length && /^([A-Z]{2}Z)?\d{3}[->\d]/.test(sLines[headEnd])) {
+          ugcStr += sLines[headEnd] + '-';
+          headEnd++;
         }
+        if (headEnd === 0 || !ugcZones(ugcStr).has(fwzCode)) continue;
+        // Header, then zone name, then date line, then forecast periods
+        if (sLines.length > headEnd + 2) {
+          zoneName = sLines[headEnd].replace(/-$/g, '').trim();
+          // Find where forecast periods start (lines starting with .)
+          let startIdx = headEnd + 2;
+          for (let li = headEnd + 2; li < sLines.length; li++) {
+            if (sLines[li].match(/^\.[A-Z]/)) { startIdx = li; break; }
+          }
+          zoneText = sLines.slice(startIdx).join('\n').trim();
+        }
+        break;
       }
     }
 
@@ -2123,9 +2215,26 @@ async function fetchFireWeatherForecast() {
   }
 }
 
+// Expand a UGC header (e.g. "CAZ362-366>368-291315-") into the zone codes it covers.
+// Offices combine consecutive zones with range notation whenever their forecasts match,
+// so a zone like CAZ367 may never appear literally in the product text.
+function ugcZones(ugcText) {
+  const zones = new Set();
+  let prefix = '';
+  for (const tok of ugcText.split('-')) {
+    const m = tok.trim().match(/^([A-Z]{2}Z)?(\d{3})(?:>(\d{3}))?$/);
+    if (!m) continue;
+    if (m[1]) prefix = m[1];
+    if (!prefix) continue;
+    const a = parseInt(m[2], 10), b = m[3] ? parseInt(m[3], 10) : a;
+    for (let n = a; n <= b; n++) zones.add(prefix + String(n).padStart(3, '0'));
+  }
+  return zones;
+}
+
 async function fetchAlerts() {
   try {
-    const resp = await fetch(`https://api.weather.gov/alerts/active?point=${APP.userLat.toFixed(4)},${APP.userLon.toFixed(4)}&status=actual`);
+    const resp = await fetchWithRetry(`https://api.weather.gov/alerts/active?point=${APP.userLat.toFixed(4)},${APP.userLon.toFixed(4)}&status=actual`);
     if (!resp.ok) { APP.alertsData = []; APP.errors.push('Alert data unavailable'); return; }
     const data = await resp.json();
     APP.alertsData = data.features || [];
@@ -2362,7 +2471,8 @@ function renderFirePotential() {
     11:{label:'Burn',short:'Burn',css:'fp-burn',height:55}
   };
   const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const todayStr = new Date().toDateString();
+  const nowD = new Date();
+  const todayKey = `${nowD.getFullYear()}-${nowD.getMonth()}-${nowD.getDate()}`;
 
   barsEl.innerHTML = '';
   for (let i = 1; i <= 7; i++) {
@@ -2371,8 +2481,11 @@ function renderFirePotential() {
     const ts = fp[`D${i}_DATE`];
     let dayLabel;
     if (ts) {
+      // NWCG timestamps are midnight UTC; read as UTC calendar dates or every US
+      // timezone renders the previous day and the whole outlook shifts one day
       const d = new Date(ts);
-      dayLabel = (d.toDateString() === todayStr) ? 'Today' : dayNames[d.getDay()];
+      const key = `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
+      dayLabel = (key === todayKey) ? 'Today' : dayNames[d.getUTCDay()];
     } else { dayLabel = `D${i}`; }
 
     const col = document.createElement('div');
@@ -2386,9 +2499,10 @@ function renderFirePotential() {
   const proDetail = document.getElementById('fpProDetail');
   let forecastDate = '--';
   if (fp.D1_DATE) {
-    const s = new Date(fp.D1_DATE).toLocaleDateString();
+    const utcOpts = { timeZone: 'UTC' };
+    const s = new Date(fp.D1_DATE).toLocaleDateString(undefined, utcOpts);
     const endTs = fp.D7_DATE || fp.D6_DATE;
-    forecastDate = endTs ? `${s} \u2013 ${new Date(endTs).toLocaleDateString()}` : s;
+    forecastDate = endTs ? `${s} \u2013 ${new Date(endTs).toLocaleDateString(undefined, utcOpts)}` : s;
   }
   const severityRank = {0:0,1:1,2:2,3:3,5:4,4:5,11:5};
   let worstCode=0, worstSev=0;
@@ -2962,15 +3076,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const proGrid = document.getElementById('metricGridPro');
   if (proGrid) proGrid.style.display = 'grid';
 
-  // Desktop: auto-geolocate. Mobile: try GPS silently, fall back to map tap.
-  const isDesktop = window.innerWidth >= 1024;
-  if (isDesktop) {
-    geolocateUser();
-  } else {
-    // On mobile, attempt GPS in the background. If it works, great.
-    // If it fails (as it usually does), the user gets the pulsing map tap hint.
-    geolocateUser();
-  }
+  // Render last-good cached data immediately (honestly timestamped), then fetch fresh.
+  restoreCache();
+  geolocateUser();
+
+  // Re-fetch when the app is foregrounded with stale data (installed-PWA case)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && APP.userLat !== null &&
+        APP.lastFetch && Date.now() - APP.lastFetch > STALE_REFRESH_MS) {
+      loadLocationData(APP.userLat, APP.userLon);
+    }
+  });
 });
 </script>
 </body>
