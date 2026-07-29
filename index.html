@@ -1673,8 +1673,9 @@ async function loadLocationData(lat, lon) {
   document.getElementById('dataPanels').style.display = 'block';
   document.getElementById('skeletonLoaders').style.display = 'block';
 
-  // Clear previous layers
-  if (APP.mapAvailable) {
+  // Clear previous layers only on a real move: a same-location refresh keeps
+  // the last-good outlines on screen if a boundary refetch fails (stale, not blank).
+  if (moved && APP.mapAvailable) {
     if (APP.forestLayer) { APP.map.removeLayer(APP.forestLayer); APP.forestLayer = null; }
     if (APP.tribalLayer) { APP.map.removeLayer(APP.tribalLayer); APP.tribalLayer = null; }
   }
@@ -1958,6 +1959,7 @@ async function findNearestForest() {
         const p = APP.forestData.properties;
         if (p.FORESTNUMB) p.FORESTNUMBER = p.FORESTNUMB;
         APP.forestData.properties._nearby = true;
+        drawForestBoundary(APP.forestData);
         return;
       }
     } catch (err) { continue; }
@@ -1970,9 +1972,9 @@ function drawForestBoundary(feature) {
   APP.forestLayer = L.geoJSON(feature, {
     style: { color: '#2E5E3E', weight: 2.5, fillColor: '#2E5E3E', fillOpacity: 0.08, dashArray: '6 3' }
   }).addTo(APP.map);
-  const bounds = APP.forestLayer.getBounds();
-  if (APP.userMarker) bounds.extend(APP.userMarker.getLatLng());
-  APP.map.fitBounds(bounds, { padding: [30, 30] });
+  // No fitBounds: the camera belongs to the landing view (user at zoom 9).
+  // Fitting here yanked the map to whole-forest extent and raced the tribal
+  // layer's fit for the final say — the boundary draws under the view instead.
 }
 
 // ============================================================
@@ -2014,10 +2016,7 @@ function drawTribalBoundary(feature) {
   APP.tribalLayer = L.geoJSON(feature, {
     style: { color: '#D4702A', weight: 2.5, fillColor: '#D4702A', fillOpacity: 0.06, dashArray: '8 4 2 4' }
   }).addTo(APP.map);
-  const bounds = APP.tribalLayer.getBounds();
-  if (APP.forestLayer) bounds.extend(APP.forestLayer.getBounds());
-  if (APP.userMarker) bounds.extend(APP.userMarker.getLatLng());
-  APP.map.fitBounds(bounds, { padding: [30, 30] });
+  // No fitBounds here either — see drawForestBoundary.
 }
 
 // ============================================================
