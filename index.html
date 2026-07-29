@@ -1582,7 +1582,8 @@ function initMap() {
     return;
   }
   try {
-    APP.map = L.map('map', { center: [39.8283, -98.5795], zoom: 4, zoomControl: true, attributionControl: true });
+    // Pre-location framing leans West (core user base); geolocation recenters immediately
+    APP.map = L.map('map', { center: [41.5, -117.5], zoom: 5, zoomControl: true, attributionControl: true });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors', maxZoom: 18
     }).addTo(APP.map);
@@ -1806,7 +1807,7 @@ const STALE_REFRESH_MS = 15 * 60000;
 
 function saveCache() {
   const slim = {
-    lat: APP.userLat, lon: APP.userLon, t: APP.lastFetch, locationMode: APP.locationMode,
+    lat: APP.userLat, lon: APP.userLon, t: APP.lastFetch,
     // Forest geometry can be MB-scale; keep properties only (boundary just isn't redrawn on restore)
     forestData: APP.forestData ? { type: 'Feature', properties: APP.forestData.properties } : null,
     landData: APP.landData, tribalData: APP.tribalData,
@@ -1833,7 +1834,6 @@ function restoreCache() {
   if (Date.now() - c.t > CACHE_MAX_AGE_MS) return false;
 
   APP.userLat = c.lat; APP.userLon = c.lon; APP.lastFetch = c.t;
-  APP.locationMode = c.locationMode === 'manual' ? 'manual' : 'gps';
   APP.forestData = c.forestData; APP.landData = c.landData; APP.tribalData = c.tribalData;
   APP.weatherMeta = c.weatherMeta; APP.forecastData = c.forecastData; APP.hourlyData = c.hourlyData;
   APP.gridData = c.gridData; APP.alertsData = c.alertsData;
@@ -3364,15 +3364,11 @@ document.addEventListener('DOMContentLoaded', () => {
     geolocateUser();
   });
 
-  // Render last-good cached data immediately (honestly timestamped), then fetch fresh.
-  // A location the user pinned deliberately (map tap, dropdown, coords) is a
-  // preference: keep it across opens and just refresh its data. GPS mode follows.
+  // Render last-good cached data immediately (honestly timestamped), then always
+  // geolocate: a fresh page load snaps to GPS. A manually pinned spot holds only
+  // for the life of the page session (see visibilitychange below).
   restoreCache();
-  if (APP.locationMode === 'manual' && APP.userLat !== null) {
-    loadLocationData(APP.userLat, APP.userLon);
-  } else {
-    geolocateUser();
-  }
+  geolocateUser();
 
   // Foregrounding the installed PWA doesn't reload the page — refresh there too,
   // honoring the same mode split
