@@ -13,7 +13,7 @@
   script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
   style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
   img-src 'self' https://*.tile.openstreetmap.org https://cdnjs.cloudflare.com https://fsapps.nwcg.gov data:;
-  connect-src https://api.weather.gov https://apps.fs.usda.gov https://services9.arcgis.com https://fsapps.nwcg.gov https://gis.blm.gov https://tigerweb.geo.census.gov;
+  connect-src https://api.weather.gov https://apps.fs.usda.gov https://services9.arcgis.com https://fsapps.nwcg.gov https://gis.blm.gov https://tigerweb.geo.census.gov https://ipwho.is;
   manifest-src 'self';
   worker-src 'self';
   font-src 'self';
@@ -652,10 +652,7 @@ html, body {
   color: var(--cream);
   font-weight: 500;
   text-align: right;
-  /* long FWF values (valleys/ridges strings) must shrink and wrap, not overlap the label */
-  flex-shrink: 1;
-  min-width: 0;
-  overflow-wrap: anywhere;
+  flex-shrink: 0;
   margin-left: 8px;
 }
 .swc-row-trend {
@@ -670,16 +667,6 @@ html, body {
 .swc-val-warn { color: var(--orange-light); }
 .swc-val-danger { color: var(--red-text); }
 .swc-val-na { color: var(--text-dim); font-style: italic; font-weight: 400; }
-/* Body-copy color that flips with the theme — use instead of inline var(--cream) */
-.ink { color: var(--cream); }
-.swc-terrain-tag {
-  color: var(--text-muted);
-  font-size: 9px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.swc-body-text { padding: 10px 12px; font-size: 12px; line-height: 1.5; }
 .swc-derived {
   font-size: 9px;
   color: var(--text-dim);
@@ -914,10 +901,6 @@ body.light-mode .swc-section-title { color: var(--black); }
 body.light-mode .swc-row { border-bottom-color: #e8e4db; }
 body.light-mode .swc-row-value { color: var(--black); }
 body.light-mode .swc-row-label { color: #666; }
-body.light-mode .ink { color: var(--black); }
-body.light-mode .gacc-grid-label { color: #555; }
-body.light-mode .gacc-grid-label.gacc-mine { color: var(--orange-dark); }
-body.light-mode .gacc-legend { color: #555; }
 body.light-mode .forest-banner { background: var(--forest-light); }
 body.light-mode .source-footer { color: #999; }
 body.light-mode .source-footer a { color: var(--orange-dark); }
@@ -1092,7 +1075,7 @@ body.light-mode .skeleton {
       <!-- PAL description + restrictions -->
       <div id="palSection" style="margin-top:10px;">
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">&#x1F6A8; Project Activity Level: <span style="font-weight:400;">Always exercise caution when operating chainsaw powerheads or heavy equipment in the forest during fire season.</span></div>
-        <div id="palDescription" class="ink" style="font-size:13px;line-height:1.5;"></div>
+        <div id="palDescription" style="font-size:13px;line-height:1.5;color:var(--cream);"></div>
         <div class="pal-restrictions" id="palRestrictions"></div>
         <div class="pal-detail pro-only" id="palProDetail"></div>
       </div>
@@ -1588,27 +1571,39 @@ function initMap() {
 // ============================================================
 // GEOLOCATION
 // ============================================================
-function gpsFailFallback(message) {
-  // Every geolocation path exhausted. If a location is already known (cache or a
-  // previous fix), refresh its data instead of dead-ending at the tap hint.
-  // Never guess from the IP address — carrier/ISP egress points land far away.
-  if (APP.userLat !== null && APP.userLon !== null) {
-    loadLocationData(APP.userLat, APP.userLon);
-    return;
-  }
+function gpsFailFallback() {
   const msg = document.getElementById('emptyMsg');
-  if (msg) msg.textContent = message || 'Tap anywhere on the map to set your location.';
+  if (msg) msg.textContent = 'Tap anywhere on the map to set your location.';
   const hint = document.getElementById('mapTapHint');
   if (hint) hint.classList.add('pulse');
+}
+
+async function tryIPFallback() {
+  try {
+    const ipResp = await fetch('https://ipwho.is/');
+    const ipData = await ipResp.json();
+    if (ipData.success && ipData.latitude && ipData.longitude) {
+      await loadLocationData(ipData.latitude, ipData.longitude);
+      return true;
+    }
+  } catch (ipErr) {
+    console.log('IP geolocation failed:', ipErr);
+  }
+  return false;
 }
 
 async function geolocateUser() {
   const inIframe = window.self !== window.top;
   const onForeignHost = window.location.hostname.includes('claudeusercontent.com');
 
-  // GPS API not available in this context at all
+  // If GPS API isn't available at all, IP fallback then map tap
   if (!navigator.geolocation || onForeignHost || (inIframe && window.isSecureContext === false) || window.isSecureContext === false) {
-    gpsFailFallback('Location is unavailable in this browser. Tap the map to set your location.');
+    const msg = document.getElementById('emptyMsg');
+    if (msg) msg.textContent = 'Finding your location...';
+    showLoading('Finding your location...');
+    if (await tryIPFallback()) return;
+    hideLoading();
+    gpsFailFallback();
     return;
   }
 
@@ -1633,8 +1628,10 @@ async function geolocateUser() {
     console.log('High-accuracy GPS failed:', err.code, err.message);
     // error.code 1 = PERMISSION_DENIED: user or browser blocked it, no point retrying GPS
     if (err.code === 1) {
+      console.log('Permission denied, falling back to IP');
+      if (await tryIPFallback()) return;
       hideLoading();
-      gpsFailFallback('Location permission is blocked. Enable location for this site in your browser settings, or tap the map to set your location.');
+      gpsFailFallback();
       return;
     }
   }
@@ -1681,6 +1678,9 @@ async function geolocateUser() {
   } catch (err3) {
     console.log('Low-accuracy GPS failed:', err3.code, err3.message);
   }
+
+  // --- Attempt 4: IP-based geolocation (city-level, last resort before map tap) ---
+  if (await tryIPFallback()) return;
 
   // --- All methods exhausted ---
   hideLoading();
@@ -1767,8 +1767,7 @@ async function loadLocationData(lat, lon) {
 
 function setMapLocation(lat, lon) {
   if (!APP.mapAvailable) return;
-  // Zoom 9 ≈ 60-mile regional view: user centered, coast-to-forest context visible
-  APP.map.setView([lat, lon], 9);
+  APP.map.setView([lat, lon], 10);
   if (APP.userMarker) APP.map.removeLayer(APP.userMarker);
   APP.userMarker = L.marker([lat, lon], {
     icon: L.divIcon({
@@ -2011,8 +2010,9 @@ function drawForestBoundary(feature) {
   APP.forestLayer = L.geoJSON(feature, {
     style: { color: '#2E5E3E', weight: 2.5, fillColor: '#2E5E3E', fillOpacity: 0.08, dashArray: '6 3' }
   }).addTo(APP.map);
-  // No fitBounds: the view stays user-centered at the default zoom instead of
-  // zooming out to swallow a 140-mile forest (and jumping as layers race in)
+  const bounds = APP.forestLayer.getBounds();
+  if (APP.userMarker) bounds.extend(APP.userMarker.getLatLng());
+  APP.map.fitBounds(bounds, { padding: [30, 30] });
 }
 
 // ============================================================
@@ -2054,6 +2054,10 @@ function drawTribalBoundary(feature) {
   APP.tribalLayer = L.geoJSON(feature, {
     style: { color: '#D4702A', weight: 2.5, fillColor: '#D4702A', fillOpacity: 0.06, dashArray: '8 4 2 4' }
   }).addTo(APP.map);
+  const bounds = APP.tribalLayer.getBounds();
+  if (APP.forestLayer) bounds.extend(APP.forestLayer.getBounds());
+  if (APP.userMarker) bounds.extend(APP.userMarker.getLatLng());
+  APP.map.fitBounds(bounds, { padding: [30, 30] });
 }
 
 // ============================================================
@@ -2685,7 +2689,7 @@ function renderGaccOutlook() {
         <span class="swc-section-title">Fuels — dead & live</span>
         <span class="swc-section-chevron">▼</span>
       </div>
-      <div class="swc-section-body"><div class="swc-body-text ink">${htmlToParagraphs(g.fuelsHtml)}</div></div>
+      <div class="swc-section-body"><div style="padding:10px 12px;font-size:12px;color:var(--cream);line-height:1.5;">${htmlToParagraphs(g.fuelsHtml)}</div></div>
     </div>`;
   }
   if (g.weatherHtml) {
@@ -2694,7 +2698,7 @@ function renderGaccOutlook() {
         <span class="swc-section-title">Weather discussion</span>
         <span class="swc-section-chevron">▼</span>
       </div>
-      <div class="swc-section-body"><div class="swc-body-text ink">${htmlToParagraphs(g.weatherHtml)}</div></div>
+      <div class="swc-section-body"><div style="padding:10px 12px;font-size:12px;color:var(--cream);line-height:1.5;">${htmlToParagraphs(g.weatherHtml)}</div></div>
     </div>`;
   }
   html += `<div style="font-size:10px;color:var(--text-dim);margin-top:4px;">Source: NWCG Predictive Services · <a href="https://fsapps.nwcg.gov/psp/npsg/forecast/#/outlooks?state=forecast&gaccId=${g.gaccId}" target="_blank" rel="noopener noreferrer" style="color:var(--orange-light);">Full outlook</a></div>`;
@@ -2893,7 +2897,7 @@ function renderDetailedForecast() {
   // Show first 4 periods (Today, Tonight, Tomorrow, Tomorrow Night)
   const html = periods.slice(0, 4).map(p => {
     const pop = p.probabilityOfPrecipitation?.value;
-    let header = `<strong class="ink">${p.name}</strong>`;
+    let header = `<strong style="color:var(--cream);">${p.name}</strong>`;
     header += ` <span style="color:var(--orange-light);">${p.temperature}\u00B0${p.temperatureUnit}</span>`;
     if (pop !== null && pop > 0) header += ` <span style="color:var(--pal-c);">\u{1F4A7} ${pop}%</span>`;
     return `<div style="margin-bottom:10px;">${header}<br><span>${p.detailedForecast}</span></div>`;
@@ -2956,7 +2960,7 @@ function renderFireIndices() {
           <span class="swc-section-chevron">\u25bc</span>
         </div>
         <div class="swc-section-body">
-          <div class="swc-body-text ink">${fwf.discussion}</div>
+          <div style="padding:10px 12px;font-size:12px;color:var(--cream);line-height:1.5;">${fwf.discussion}</div>
         </div>
       </div>`;
     }
@@ -3120,15 +3124,7 @@ function renderFireIndices() {
 
 function swcRow(label, value, valueClass) {
   const cls = valueClass ? ' ' + valueClass : '';
-  let val = String(value).replace(/^\.+\s*/, ''); // strip FWF dot leaders
-  // FWF terrain-split values ("Valleys/lwr slopes...80-88 Ridges/upr slopes....68-76°F")
-  // are two data points — render them as stacked, labeled lines
-  const t = val.match(/valleys[^.]*\.{2,}\s*(.*?)\s*ridges[^.]*\.{2,}\s*(.*)$/i);
-  if (t) {
-    const clean = s => s.trim().replace(/\s*percent\b/i, '%').replace(/\.\s*$/, '');
-    val = `<span class="swc-terrain-tag">Valleys</span> ${clean(t[1])}<br><span class="swc-terrain-tag">Ridges</span> ${clean(t[2])}`;
-  }
-  return `<div class="swc-row"><span class="swc-row-label">${label}</span><span class="swc-row-value${cls}">${val}</span></div>`;
+  return `<div class="swc-row"><span class="swc-row-label">${label}</span><span class="swc-row-value${cls}">${value}</span></div>`;
 }
 
 function degreesToCardinal(deg) {
@@ -3333,12 +3329,11 @@ document.addEventListener('DOMContentLoaded', () => {
   restoreCache();
   geolocateUser();
 
-  // Foregrounding the installed PWA doesn't reload the page — re-acquire GPS there
-  // too, so the app geolocates on every open, not just full page loads
+  // Re-fetch when the app is foregrounded with stale data (installed-PWA case)
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' &&
+    if (document.visibilityState === 'visible' && APP.userLat !== null &&
         APP.lastFetch && Date.now() - APP.lastFetch > STALE_REFRESH_MS) {
-      geolocateUser();
+      loadLocationData(APP.userLat, APP.userLon);
     }
   });
 });
