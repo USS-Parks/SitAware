@@ -1392,7 +1392,6 @@ const APP = {
   forestData: null,
   landData: null,
   tribalData: null,
-  tribalFeature: null,
   weatherData: null,
   weatherMeta: null,
   gridData: null,
@@ -1697,7 +1696,7 @@ async function loadLocationData(lat, lon) {
   // Same location: keep last-good data so a failed source degrades to stale, not blank.
   const moved = APP.userLat === null || Math.abs(APP.userLat - lat) > 0.02 || Math.abs(APP.userLon - lon) > 0.02;
   if (moved) {
-    APP.forestData = APP.landData = APP.tribalData = APP.tribalFeature = null;
+    APP.forestData = APP.landData = APP.tribalData = null;
     APP.weatherMeta = APP.forecastData = APP.hourlyData = APP.gridData = null;
     APP.alertsData = APP.firePotentialData = APP.fwfData = APP.gaccOutlook = null;
   }
@@ -1795,11 +1794,10 @@ const CACHE_MAX_AGE_MS = 24 * 3600000;
 const STALE_REFRESH_MS = 15 * 60000;
 
 function saveCache() {
-  // Boundary geometry is cached (simplified at fetch time) so outlines draw
-  // immediately on restore — the outline must never wait for a refetch
-  const payload = {
+  const slim = {
     lat: APP.userLat, lon: APP.userLon, t: APP.lastFetch,
-    forestData: APP.forestData, tribalFeature: APP.tribalFeature,
+    // Forest geometry can be MB-scale; keep properties only (boundary just isn't redrawn on restore)
+    forestData: APP.forestData ? { type: 'Feature', properties: APP.forestData.properties } : null,
     landData: APP.landData, tribalData: APP.tribalData,
     weatherMeta: APP.weatherMeta, forecastData: APP.forecastData, hourlyData: APP.hourlyData,
     gridData: APP.gridData, alertsData: APP.alertsData,
@@ -1807,19 +1805,13 @@ function saveCache() {
     gaccOutlook: APP.gaccOutlook
   };
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
+    localStorage.setItem(CACHE_KEY, JSON.stringify(slim));
   } catch (e) {
-    // Quota: shed the largest payloads first; geometry goes only as a last resort
+    // Quota: retry without the largest payload
     try {
-      payload.gridData = null;
-      localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
-    } catch (e2) {
-      try {
-        payload.forestData = APP.forestData ? { type: 'Feature', properties: APP.forestData.properties } : null;
-        payload.tribalFeature = null;
-        localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
-      } catch (e3) { /* give up silently */ }
-    }
+      slim.gridData = null;
+      localStorage.setItem(CACHE_KEY, JSON.stringify(slim));
+    } catch (e2) { /* give up silently */ }
   }
 }
 
@@ -1835,7 +1827,6 @@ function restoreCache() {
   APP.gridData = c.gridData; APP.alertsData = c.alertsData;
   APP.firePotentialData = c.firePotentialData; APP.fwfData = c.fwfData;
   APP.gaccOutlook = c.gaccOutlook || null;
-  APP.tribalFeature = c.tribalFeature || null;
 
   const coordsEl = document.getElementById('mapCoords');
   coordsEl.textContent = `${c.lat.toFixed(4)}°N, ${Math.abs(c.lon).toFixed(4)}°W`;
@@ -1843,9 +1834,6 @@ function restoreCache() {
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('dataPanels').style.display = 'block';
   setMapLocation(c.lat, c.lon);
-  // Redraw cached boundary outlines right now — never wait for the refetch
-  if (APP.forestData && APP.forestData.geometry) drawForestBoundary(APP.forestData);
-  if (APP.tribalFeature) drawTribalBoundary(APP.tribalFeature);
   const hint = document.getElementById('mapTapHint');
   if (hint) hint.style.display = 'none';
   renderAll();
@@ -1945,9 +1933,6 @@ async function fetchForestData() {
   const params = new URLSearchParams({
     geometry: geom, geometryType: 'esriGeometryPoint', spatialRel: 'esriSpatialRelIntersects',
     outFields: 'FORESTNAME,FORESTNUMB,GIS_ACRES,REGION',
-    // ~500m simplification (same as the tribal query): visually identical at region
-    // zoom, small enough that the outline geometry fits in the localStorage cache
-    maxAllowableOffset: '0.005',
     returnGeometry: 'true', outSR: '4326', inSR: '4326', f: 'geojson'
   });
   const endpoints = [APP.USFS_URL, APP.USFS_FALLBACK_URL];
@@ -1993,23 +1978,6 @@ async function fetchSMALandData() {
   } catch (err) { APP.landData = null; APP.errors.push('BLM/SMA data unavailable'); }
 }
 
-// Minimum distance (miles) from a point to any vertex of a (simplified) geometry.
-// Vertices sit ~500m apart after maxAllowableOffset, so this is accurate enough
-// to rank which forest is genuinely closest.
-function minVertexDistance(geom, lat, lon) {
-  let best = Infinity;
-  const walk = c => {
-    if (typeof c[0] === 'number') {
-      const d = haversine(lat, lon, c[1], c[0]);
-      if (d < best) best = d;
-      return;
-    }
-    for (const x of c) walk(x);
-  };
-  if (geom && geom.coordinates) walk(geom.coordinates);
-  return best;
-}
-
 async function findNearestForest() {
   const geom = JSON.stringify({
     xmin: APP.userLon - 1, ymin: APP.userLat - 1, xmax: APP.userLon + 1, ymax: APP.userLat + 1,
@@ -2018,7 +1986,6 @@ async function findNearestForest() {
   const params = new URLSearchParams({
     geometry: geom, geometryType: 'esriGeometryEnvelope', spatialRel: 'esriSpatialRelIntersects',
     outFields: 'FORESTNAME,FORESTNUMB,GIS_ACRES,REGION',
-    maxAllowableOffset: '0.005',
     returnGeometry: 'true', outSR: '4326', inSR: '4326', f: 'geojson', resultRecordCount: '5'
   });
   const endpoints = [APP.USFS_URL, APP.USFS_FALLBACK_URL];
@@ -2028,18 +1995,10 @@ async function findNearestForest() {
       if (!resp.ok) continue;
       const data = await resp.json();
       if (data.features && data.features.length > 0) {
-        // Rank by real distance — the server's first result is arbitrary, not nearest
-        let bestFeature = null, bestMi = Infinity;
-        for (const f of data.features) {
-          const mi = minVertexDistance(f.geometry, APP.userLat, APP.userLon);
-          if (mi < bestMi) { bestMi = mi; bestFeature = f; }
-        }
-        APP.forestData = bestFeature;
+        APP.forestData = data.features[0];
         const p = APP.forestData.properties;
         if (p.FORESTNUMB) p.FORESTNUMBER = p.FORESTNUMB;
         APP.forestData.properties._nearby = true;
-        // The banner names this forest — its outline belongs on the map too
-        drawForestBoundary(APP.forestData);
         return;
       }
     } catch (err) { continue; }
@@ -2084,10 +2043,9 @@ async function fetchTribalData() {
         name: p.NAME || p.BASENAME || 'Unknown', basename: p.BASENAME || '', geoid: p.GEOID || '',
         acres: p.AREALAND ? Math.round(p.AREALAND * 0.000247105) : null, source: tribalSource
       };
-      APP.tribalFeature = tribalFeature;
       drawTribalBoundary(tribalFeature);
-    } else { APP.tribalData = null; APP.tribalFeature = null; }
-  } catch (err) { APP.tribalData = null; APP.tribalFeature = null; APP.errors.push('Tribal boundary data unavailable'); }
+    } else { APP.tribalData = null; }
+  } catch (err) { APP.tribalData = null; APP.errors.push('Tribal boundary data unavailable'); }
 }
 
 function drawTribalBoundary(feature) {
