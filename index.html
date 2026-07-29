@@ -12,7 +12,7 @@
   content="default-src 'none';
   script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
   style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
-  img-src 'self' https://*.tile.openstreetmap.org https://cdnjs.cloudflare.com data:;
+  img-src 'self' https://*.tile.openstreetmap.org https://cdnjs.cloudflare.com https://fsapps.nwcg.gov data:;
   connect-src https://api.weather.gov https://apps.fs.usda.gov https://services9.arcgis.com https://fsapps.nwcg.gov https://gis.blm.gov https://tigerweb.geo.census.gov https://ipwho.is;
   manifest-src 'self';
   worker-src 'self';
@@ -432,6 +432,25 @@ html, body {
 .fp-wind { background: #B85A00; }
 .fp-burn { background: #7B3FA0; }
 .fp-nodata { background: #555; }
+
+/* GACC outlook grid */
+.gacc-grid { display: grid; gap: 2px; font-size: 10px; margin-bottom: 10px; }
+.gacc-grid-label { padding: 3px 4px; color: var(--cream-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gacc-grid-label.gacc-mine { color: var(--orange-light); font-weight: 700; }
+.gacc-grid-head { padding: 2px; text-align: center; color: var(--text-dim); }
+.gacc-cell { height: 18px; border-radius: 2px; }
+.gacc-legend { display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 10px; color: var(--cream-dark); margin: 2px 0 10px; }
+.gacc-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+
+/* CONUS map card */
+.conus-day-strip { display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap; }
+.conus-day-btn {
+  flex: 1; min-width: 38px; padding: 4px 2px; font-size: 10px; cursor: pointer;
+  background: var(--surface); color: var(--cream-dark);
+  border: 1px solid var(--surface-border); border-radius: var(--radius-xs);
+}
+.conus-day-btn.active { background: var(--orange); color: #fff; border-color: var(--orange); font-weight: 700; }
+.conus-map-img { width: 100%; display: block; border-radius: var(--radius-xs); }
 
 /* Forecast strip */
 .forecast-strip {
@@ -1075,6 +1094,24 @@ body.light-mode .skeleton {
       </div>
     </div>
 
+    <!-- NWCG GACC 7-DAY OUTLOOK (per-PSA grid + fuels/weather narratives) -->
+    <div class="card" id="gaccCard" style="display:none;">
+      <div class="card-header">
+        <div class="card-label">GACC 7-day outlook</div>
+        <span style="font-size:10px;color:var(--text-dim);" id="gaccTimestamp"></span>
+      </div>
+      <div id="gaccContent"></div>
+    </div>
+
+    <!-- NWCG CONUS 7-DAY FIRE POTENTIAL MAP -->
+    <div class="card" id="conusCard" style="display:none;">
+      <div class="card-header">
+        <div class="card-label">7-day fire potential map</div>
+        <span style="font-size:10px;color:var(--text-dim);" id="conusDayLabel"></span>
+      </div>
+      <div id="conusContent"></div>
+    </div>
+
     <!-- FORECAST -->
     <div class="card">
       <div class="card-label">Hourly forecast</div>
@@ -1339,6 +1376,8 @@ const APP = {
   gridData: null,
   alertsData: null,
   firePotentialData: null,
+  gaccOutlook: null,
+  conusDays: null,
   forecastData: null,
   hourlyData: null,
   fireAlerts: null,
@@ -1655,7 +1694,7 @@ async function loadLocationData(lat, lon) {
   if (moved) {
     APP.forestData = APP.landData = APP.tribalData = null;
     APP.weatherMeta = APP.forecastData = APP.hourlyData = APP.gridData = null;
-    APP.alertsData = APP.firePotentialData = APP.fwfData = null;
+    APP.alertsData = APP.firePotentialData = APP.fwfData = APP.gaccOutlook = null;
   }
   APP.userLat = lat;
   APP.userLon = lon;
@@ -1692,7 +1731,7 @@ async function loadLocationData(lat, lon) {
       fetchTribalData(),
       fetchWeatherData().then(() => fetchFireWeatherForecast()),
       fetchAlerts(),
-      fetchFirePotential()
+      fetchFirePotential().then(() => fetchGaccOutlook())
     ]);
 
     // Hide skeletons, render data
@@ -1757,7 +1796,8 @@ function saveCache() {
     landData: APP.landData, tribalData: APP.tribalData,
     weatherMeta: APP.weatherMeta, forecastData: APP.forecastData, hourlyData: APP.hourlyData,
     gridData: APP.gridData, alertsData: APP.alertsData,
-    firePotentialData: APP.firePotentialData, fwfData: APP.fwfData
+    firePotentialData: APP.firePotentialData, fwfData: APP.fwfData,
+    gaccOutlook: APP.gaccOutlook
   };
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(slim));
@@ -1781,6 +1821,7 @@ function restoreCache() {
   APP.weatherMeta = c.weatherMeta; APP.forecastData = c.forecastData; APP.hourlyData = c.hourlyData;
   APP.gridData = c.gridData; APP.alertsData = c.alertsData;
   APP.firePotentialData = c.firePotentialData; APP.fwfData = c.fwfData;
+  APP.gaccOutlook = c.gaccOutlook || null;
 
   const coordsEl = document.getElementById('mapCoords');
   coordsEl.textContent = `${c.lat.toFixed(4)}°N, ${Math.abs(c.lon).toFixed(4)}°W`;
@@ -2266,8 +2307,10 @@ async function fetchFirePotential() {
     }));
     if (dayResults.every(d => d === null)) { APP.firePotentialData = null; return; }
     const fp = {
-      PSA_NAME: psaMeta.PSA_NAME || '', NAT_CODE: psaMeta.NAT_CODE || (dayResults[0]?.nat_code) || '',
-      GACC_Label: psaMeta.GACC_Label || '', gacc: dayResults[0]?.gacc_name || '',
+      PSA_NAME: psaMeta.PSA_NAME || '', NAT_CODE: psaMeta.NAT_CODE || (dayResults.find(d => d && d.nat_code)?.nat_code) || '',
+      GACC_Label: psaMeta.GACC_Label || '',
+      // any day's row works — individual day layers can be empty for a PSA
+      gacc: (dayResults.find(d => d && d.gacc_name)?.gacc_name) || '',
       Unit_ID: psaMeta.Unit_ID || '', DATE: dayResults[0] ? dayResults[0].timestampdate : Date.now()
     };
     for (let i = 0; i < 7; i++) {
@@ -2286,6 +2329,72 @@ async function fetchFirePotential() {
 }
 
 // ============================================================
+// NWCG GACC 7-DAY OUTLOOK (granular per-PSA grid + narratives)
+// ============================================================
+const GACC_API = 'https://fsapps.nwcg.gov/psp/npsg/forecast/api';
+
+const DRYNESS_MAP = {
+  0:{label:'No Data',short:'--',css:'fp-nodata',height:15},
+  1:{label:'Moist',short:'Low',css:'fp-low',height:25},
+  2:{label:'Dry',short:'Low',css:'fp-low',height:30},
+  3:{label:'Very Dry',short:'Mod',css:'fp-mod',height:45},
+  4:{label:'Lightning',short:'Ltng',css:'fp-lightning',height:55},
+  5:{label:'Wind',short:'Wind',css:'fp-wind',height:55},
+  11:{label:'Burn',short:'Burn',css:'fp-burn',height:55}
+};
+
+async function fetchGaccOutlook() {
+  try {
+    const gaccName = APP.firePotentialData?.gacc || '';
+    const gaccLabel = APP.firePotentialData?.GACC_Label || '';
+    if (!gaccName && !gaccLabel) { APP.gaccOutlook = null; return; }
+    const gaccsResp = await fetchWithRetry(`${GACC_API}/gaccs?geo=false`);
+    if (!gaccsResp.ok) throw new Error(`gaccs ${gaccsResp.status}`);
+    const gaccs = await gaccsResp.json();
+    let gacc = (gaccs || []).find(g => g.name && g.name.trim().toLowerCase() === gaccName.trim().toLowerCase());
+    if (!gacc && gaccLabel) {
+      // e.g. KeyRAWS labels "North Ops" vs API "California North Ops" — accept only an unambiguous match
+      const cands = (gaccs || []).filter(g => g.name && g.name.toLowerCase().includes(gaccLabel.trim().toLowerCase()));
+      if (cands.length === 1) gacc = cands[0];
+    }
+    if (!gacc) { APP.gaccOutlook = null; return; }
+    const lfResp = await fetchWithRetry(`${GACC_API}/gaccs/${gacc.gaccId}/latest-forecast`);
+    if (!lfResp.ok) throw new Error(`latest-forecast ${lfResp.status}`);
+    const lf = await lfResp.json();
+    const [psasR, dataR] = await Promise.allSettled([
+      fetchWithRetry(`${GACC_API}/gaccs/${gacc.gaccId}/psas?geo=false`),
+      fetchWithRetry(`${GACC_API}/forecasts/${lf.forecastId}/data`)
+    ]);
+    let psas = [], rows = [];
+    if (psasR.status === 'fulfilled' && psasR.value.ok) psas = await psasR.value.json();
+    if (dataR.status === 'fulfilled' && dataR.value.ok) rows = await dataR.value.json();
+    APP.gaccOutlook = {
+      gaccId: gacc.gaccId, gaccName: gacc.name,
+      published: lf.forecastPublished || '', startDate: lf.startDate || '',
+      weatherHtml: lf.forecastWeather || '', fuelsHtml: lf.forecastFuels || '',
+      psas: psas || [], rows: rows || []
+    };
+  } catch (err) {
+    console.error('GACC outlook fetch error:', err);
+    APP.gaccOutlook = null;
+    APP.errors.push('GACC outlook unavailable');
+  }
+}
+
+function escHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Upstream narratives arrive as HTML from a federal API — a trust boundary.
+// Reduce to escaped plain-text paragraphs instead of injecting their markup.
+function htmlToParagraphs(html) {
+  const doc = new DOMParser().parseFromString(html || '', 'text/html');
+  let blocks = [...doc.body.querySelectorAll('p, li')].map(el => el.textContent.replace(/\s+/g, ' ').trim());
+  if (blocks.length === 0) blocks = [(doc.body.textContent || '').replace(/\s+/g, ' ').trim()];
+  return blocks.filter(Boolean).map(t => `<p style="margin:0 0 8px;">${escHtml(t)}</p>`).join('');
+}
+
+// ============================================================
 // RENDER ALL DATA
 // ============================================================
 function renderAll() {
@@ -2293,6 +2402,8 @@ function renderAll() {
   renderRedFlagAlerts();
   renderHeroCard();
   renderFirePotential();
+  renderGaccOutlook();
+  renderConusMap();
   renderHumidityRecovery();
   renderForecast();
   renderDetailedForecast();
@@ -2460,16 +2571,6 @@ function renderFirePotential() {
   const fpCard = document.getElementById('fpCard');
 
   if (!fp) { barsEl.innerHTML = '<div style="font-size:11px;color:var(--text-muted);padding:8px;">Data unavailable</div>'; return; }
-
-  const drynessMap = {
-    0:{label:'No Data',short:'--',css:'fp-nodata',height:15},
-    1:{label:'Moist',short:'Low',css:'fp-low',height:25},
-    2:{label:'Dry',short:'Low',css:'fp-low',height:30},
-    3:{label:'Very Dry',short:'Mod',css:'fp-mod',height:45},
-    4:{label:'Lightning',short:'Ltng',css:'fp-lightning',height:55},
-    5:{label:'Wind',short:'Wind',css:'fp-wind',height:55},
-    11:{label:'Burn',short:'Burn',css:'fp-burn',height:55}
-  };
   const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const nowD = new Date();
   const todayKey = `${nowD.getFullYear()}-${nowD.getMonth()}-${nowD.getDate()}`;
@@ -2477,7 +2578,7 @@ function renderFirePotential() {
   barsEl.innerHTML = '';
   for (let i = 1; i <= 7; i++) {
     const code = fp[`D${i}`];
-    const info = drynessMap[code] || drynessMap[0];
+    const info = DRYNESS_MAP[code] || DRYNESS_MAP[0];
     const ts = fp[`D${i}_DATE`];
     let dayLabel;
     if (ts) {
@@ -2507,7 +2608,7 @@ function renderFirePotential() {
   const severityRank = {0:0,1:1,2:2,3:3,5:4,4:5,11:5};
   let worstCode=0, worstSev=0;
   for (let i=1;i<=7;i++) { const c=fp[`D${i}`]; const s=severityRank[c]!==undefined?severityRank[c]:3; if(s>worstSev){worstSev=s;worstCode=c;} }
-  const worstInfo = drynessMap[worstCode] || drynessMap[0];
+  const worstInfo = DRYNESS_MAP[worstCode] || DRYNESS_MAP[0];
   proDetail.innerHTML = `
     <div class="data-row"><span class="data-label">PSA</span><span class="data-value">${fp.PSA_NAME || '--'}</span></div>
     <div class="data-row"><span class="data-label">GACC</span><span class="data-value">${fp.GACC_Label || fp.gacc || '--'}</span></div>
@@ -2515,6 +2616,149 @@ function renderFirePotential() {
     <div class="data-row"><span class="data-label">Peak severity</span><span class="data-value">${worstInfo.label} (${worstCode})</span></div>
     <div style="font-size:10px;color:var(--text-dim);margin-top:6px;">Source: NWCG Predictive Services \u00B7 <a href="https://fsapps.nwcg.gov/psp/npsg/forecast/#/outlooks" target="_blank" rel="noopener noreferrer" style="color:var(--orange-light);">View full outlook</a></div>
   `;
+}
+
+// -- GACC 7-DAY OUTLOOK (granular per-PSA grid + fuels/weather narratives) --
+function renderGaccOutlook() {
+  const card = document.getElementById('gaccCard');
+  const g = APP.gaccOutlook;
+  if (!g) { card.style.display = 'none'; return; }
+  card.style.display = '';
+
+  // Published stamp: "20260728T095949.973-0500" is non-ISO — normalize before parsing
+  let pubLabel = g.gaccName;
+  const iso = (g.published || '').replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2}(?:\.\d+)?)([+-]\d{4})?$/, '$1-$2-$3T$4:$5:$6$7');
+  const pub = new Date(iso);
+  if (!isNaN(pub)) pubLabel += ' · pub ' + pub.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  document.getElementById('gaccTimestamp').textContent = pubLabel;
+
+  // 7 day columns from the forecast cycle start (UTC calendar dates)
+  const days = [];
+  const nowD = new Date();
+  const todayKey = `${nowD.getFullYear()}-${nowD.getMonth()}-${nowD.getDate()}`;
+  const dayNames2 = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+  if (g.startDate) {
+    const start = new Date(g.startDate + 'T00:00:00Z');
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start.getTime() + i * 86400000);
+      const key = `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
+      days.push({
+        iso: d.toISOString().slice(0, 10),
+        label: key === todayKey ? 'Today' : dayNames2[d.getUTCDay()] + d.getUTCDate()
+      });
+    }
+  }
+
+  const codeByKey = {};
+  for (const r of (g.rows || [])) codeByKey[`${r.psaId}|${r.forecastDate}`] = r.forecastCode;
+  const myCode = APP.firePotentialData?.NAT_CODE || '';
+  const psas = [...(g.psas || [])].sort((a, b) => (a.code || '').localeCompare(b.code || ''));
+
+  let html = '';
+  if (days.length && psas.length) {
+    html += `<div class="gacc-grid" style="grid-template-columns:minmax(70px,auto) repeat(7,1fr);">`;
+    html += `<div></div>` + days.map(d => `<div class="gacc-grid-head">${d.label}</div>`).join('');
+    for (const p of psas) {
+      const mine = p.code === myCode;
+      html += `<div class="gacc-grid-label${mine ? ' gacc-mine' : ''}" title="${escHtml(p.name || '')}">${escHtml(p.code || '')}</div>`;
+      for (const d of days) {
+        const code = codeByKey[`${p.psaId}|${d.iso}`];
+        const info = DRYNESS_MAP[code] || DRYNESS_MAP[0];
+        html += `<div class="gacc-cell ${info.css}" title="${escHtml((p.code || '') + ' ' + d.label + ': ' + info.label)}"></div>`;
+      }
+    }
+    html += `</div>`;
+    html += `<div class="gacc-legend">
+      <span><i class="gacc-swatch fp-low"></i>Low risk (moist/dry)</span>
+      <span><i class="gacc-swatch fp-mod"></i>Moderate (very dry)</span>
+      <span><i class="gacc-swatch fp-lightning"></i>Lightning</span>
+      <span><i class="gacc-swatch fp-wind"></i>Wind</span>
+      <span><i class="gacc-swatch fp-burn"></i>Burn environment</span>
+      <span><i class="gacc-swatch fp-nodata"></i>No data</span>
+    </div>`;
+  }
+
+  if (g.fuelsHtml) {
+    html += `<div class="swc-section">
+      <div class="swc-section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+        <span class="swc-section-title">Fuels — dead & live</span>
+        <span class="swc-section-chevron">▼</span>
+      </div>
+      <div class="swc-section-body"><div style="padding:10px 12px;font-size:12px;color:var(--cream);line-height:1.5;">${htmlToParagraphs(g.fuelsHtml)}</div></div>
+    </div>`;
+  }
+  if (g.weatherHtml) {
+    html += `<div class="swc-section collapsed">
+      <div class="swc-section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+        <span class="swc-section-title">Weather discussion</span>
+        <span class="swc-section-chevron">▼</span>
+      </div>
+      <div class="swc-section-body"><div style="padding:10px 12px;font-size:12px;color:var(--cream);line-height:1.5;">${htmlToParagraphs(g.weatherHtml)}</div></div>
+    </div>`;
+  }
+  html += `<div style="font-size:10px;color:var(--text-dim);margin-top:4px;">Source: NWCG Predictive Services · <a href="https://fsapps.nwcg.gov/psp/npsg/forecast/#/outlooks?state=forecast&gaccId=${g.gaccId}" target="_blank" rel="noopener noreferrer" style="color:var(--orange-light);">Full outlook</a></div>`;
+  document.getElementById('gaccContent').innerHTML = html;
+}
+
+// -- CONUS 7-DAY FIRE POTENTIAL MAP (day-accurate) --
+function renderConusMap() {
+  const card = document.getElementById('conusCard');
+  if (APP.userLat === null) { card.style.display = 'none'; return; }
+  card.style.display = '';
+
+  // Per-day dates: prefer the outlook layers' timestamps, fill gaps arithmetically,
+  // else fall back to the GACC forecast cycle start
+  const fp = APP.firePotentialData;
+  const dayMs = [];
+  for (let i = 1; i <= 7; i++) dayMs.push(fp && fp[`D${i}_DATE`] ? fp[`D${i}_DATE`] : null);
+  const known = dayMs.map((ms, idx) => ({ ms, idx })).filter(x => x.ms !== null);
+  if (known.length > 0) {
+    for (let i = 0; i < 7; i++) if (dayMs[i] === null) dayMs[i] = known[0].ms + (i - known[0].idx) * 86400000;
+  } else if (APP.gaccOutlook?.startDate) {
+    const s = new Date(APP.gaccOutlook.startDate + 'T00:00:00Z').getTime();
+    for (let i = 0; i < 7; i++) dayMs[i] = s + i * 86400000;
+  }
+
+  const nowD = new Date();
+  const todayKey = `${nowD.getFullYear()}-${nowD.getMonth()}-${nowD.getDate()}`;
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  APP.conusDays = dayMs.map((ms, idx) => {
+    let label = `D${idx + 1}`, isToday = false;
+    if (ms) {
+      const d = new Date(ms);
+      const key = `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
+      isToday = key === todayKey;
+      label = isToday ? 'Today' : dayNames[d.getUTCDay()];
+    }
+    return { n: idx + 1, ms, label, isToday };
+  });
+  // Cycle date versions the image URL so a new generation busts the HTTP cache
+  APP.conusVer = dayMs[0] ? new Date(dayMs[0]).toISOString().slice(0, 10) : '';
+
+  const sel = (APP.conusDays.find(d => d.isToday) || APP.conusDays[0]).n;
+  document.getElementById('conusContent').innerHTML = `
+    <div class="conus-day-strip">${APP.conusDays.map(d =>
+      `<button type="button" class="conus-day-btn" id="conusBtn${d.n}" onclick="setConusDay(${d.n})">${d.label}</button>`).join('')}</div>
+    <a id="conusLink" href="#" target="_blank" rel="noopener noreferrer">
+      <img id="conusImg" class="conus-map-img" alt="NWCG CONUS 7-day significant fire potential map">
+    </a>
+    <div style="font-size:10px;color:var(--text-dim);margin-top:6px;">Tap map to open full size · Source: NWCG Predictive Services</div>`;
+  setConusDay(sel);
+}
+
+function setConusDay(n) {
+  const day = (APP.conusDays || [])[n - 1];
+  if (!day) return;
+  const url = `https://fsapps.nwcg.gov/psp/npsg/data/conus-sevenday/d${n}_0.png${APP.conusVer ? '?v=' + APP.conusVer : ''}`;
+  document.getElementById('conusImg').src = url;
+  document.getElementById('conusLink').href = url;
+  for (let i = 1; i <= 7; i++) {
+    const b = document.getElementById(`conusBtn${i}`);
+    if (b) b.classList.toggle('active', i === n);
+  }
+  const d = day.ms ? new Date(day.ms) : null;
+  document.getElementById('conusDayLabel').textContent =
+    `Day ${n}` + (d ? ` · ${d.toLocaleDateString(undefined, { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' })}` : '');
 }
 
 // -- HUMIDITY RECOVERY --
