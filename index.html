@@ -1589,7 +1589,24 @@ function initMap() {
 // ============================================================
 // GEOLOCATION
 // ============================================================
+// iOS sometimes suppresses load-time permission prompts but always allows
+// gesture-triggered ones: after a failed auto-attempt, the first tap anywhere
+// re-fires geolocation (no-op if a location is already set, e.g. by a map tap).
+let gestureRetryArmed = false;
+function armGestureRetry() {
+  if (gestureRetryArmed) return;
+  gestureRetryArmed = true;
+  const once = function() {
+    document.removeEventListener('touchend', once);
+    document.removeEventListener('click', once);
+    if (APP.userLat === null) geolocateUser();
+  };
+  document.addEventListener('touchend', once, { once: true });
+  document.addEventListener('click', once, { once: true });
+}
+
 function gpsFailFallback(message) {
+  armGestureRetry();
   // Every geolocation path exhausted. If a location is already known (cache or a
   // previous fix), refresh its data instead of dead-ending at the tap hint —
   // but say so visibly: a silent wrong location is indistinguishable from a broken app.
@@ -1612,6 +1629,18 @@ async function geolocateUser() {
   // GPS API not available in this context at all
   if (!navigator.geolocation || onForeignHost || (inIframe && window.isSecureContext === false) || window.isSecureContext === false) {
     gpsFailFallback('Location is unavailable in this browser. Tap the map to set your location.');
+    return;
+  }
+
+  // Read the device's own permission state so the banner can state it verbatim
+  let permState = null;
+  try {
+    if (navigator.permissions && navigator.permissions.query) {
+      permState = (await navigator.permissions.query({ name: 'geolocation' })).state;
+    }
+  } catch (e) { /* unsupported: proceed to the ladder */ }
+  if (permState === 'denied') {
+    gpsFailFallback('This device has Location set to DENIED for this site. Safari: tap aA in the address bar > Website Settings > Location > Allow. Or tap the map to set your spot.');
     return;
   }
 
