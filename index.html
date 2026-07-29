@@ -13,7 +13,7 @@
   script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
   style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
   img-src 'self' https://*.tile.openstreetmap.org https://cdnjs.cloudflare.com https://fsapps.nwcg.gov data:;
-  connect-src https://api.weather.gov https://apps.fs.usda.gov https://services9.arcgis.com https://fsapps.nwcg.gov https://gis.blm.gov https://tigerweb.geo.census.gov https://ipwho.is;
+  connect-src https://api.weather.gov https://apps.fs.usda.gov https://services9.arcgis.com https://fsapps.nwcg.gov https://gis.blm.gov https://tigerweb.geo.census.gov;
   manifest-src 'self';
   worker-src 'self';
   font-src 'self';
@@ -1567,120 +1567,83 @@ function initMap() {
 // ============================================================
 // GEOLOCATION
 // ============================================================
-function gpsFailFallback() {
+function gpsFailFallback(text) {
   const msg = document.getElementById('emptyMsg');
-  if (msg) msg.textContent = 'Tap anywhere on the map to set your location.';
+  if (msg) msg.textContent = text || 'Tap anywhere on the map to set your location.';
   const hint = document.getElementById('mapTapHint');
   if (hint) hint.classList.add('pulse');
 }
 
-async function tryIPFallback() {
-  try {
-    const ipResp = await fetch('https://ipwho.is/');
-    const ipData = await ipResp.json();
-    if (ipData.success && ipData.latitude && ipData.longitude) {
-      await loadLocationData(ipData.latitude, ipData.longitude);
-      return true;
-    }
-  } catch (ipErr) {
-    console.log('IP geolocation failed:', ipErr);
-  }
-  return false;
-}
-
-async function geolocateUser() {
-  const inIframe = window.self !== window.top;
+// Google Maps model: the browser permission prompt happens once, on first
+// visit; after that grant every open gets a silent automatic fix on load.
+// One watchPosition does all the work: the first fix (cell/wifi, arrives in
+// seconds) lands the map and data, later fixes slide the marker onto GPS
+// truth, and the watch stops once the fix is tight. There is no IP-address
+// fallback — an ISP egress city presented as "your location" is worse than
+// asking for a map tap, and it poisoned the last-good cache for 24 h.
+function geolocateUser() {
   const onForeignHost = window.location.hostname.includes('claudeusercontent.com');
-
-  // If GPS API isn't available at all, IP fallback then map tap
-  if (!navigator.geolocation || onForeignHost || (inIframe && window.isSecureContext === false) || window.isSecureContext === false) {
-    const msg = document.getElementById('emptyMsg');
-    if (msg) msg.textContent = 'Finding your location...';
-    showLoading('Finding your location...');
-    if (await tryIPFallback()) return;
-    hideLoading();
+  if (!navigator.geolocation || onForeignHost || window.isSecureContext === false) {
     gpsFailFallback();
     return;
   }
 
-  // Show loading state
-  const msg = document.getElementById('emptyMsg');
-  if (msg) msg.textContent = 'Finding your location...';
-  showLoading('Finding your location...');
+  // A cached last-good view may already be on screen; locate silently behind it.
+  const blank = APP.userLat === null;
+  const bootLat = APP.userLat, bootLon = APP.userLon;
+  if (blank) {
+    const msg = document.getElementById('emptyMsg');
+    if (msg) msg.textContent = 'Finding your location...';
+    showLoading('Finding your location...');
+  }
 
-  // --- Attempt 1: getCurrentPosition with HIGH accuracy ---
-  // enableHighAccuracy: true activates GPS hardware on mobile (what Watch Duty uses)
-  // 20-second timeout gives time for: browser permission prompt + GPS cold start + satellite acquisition
-  try {
-    const pos = await new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true, timeout: 20000, maximumAge: 300000
-      });
-    });
-    console.log('GPS fix (high accuracy):', pos.coords.latitude, pos.coords.longitude, 'accuracy:', pos.coords.accuracy, 'm');
-    await loadLocationData(pos.coords.latitude, pos.coords.longitude);
-    return;
-  } catch (err) {
-    console.log('High-accuracy GPS failed:', err.code, err.message);
-    // error.code 1 = PERMISSION_DENIED: user or browser blocked it, no point retrying GPS
-    if (err.code === 1) {
-      console.log('Permission denied, falling back to IP');
-      if (await tryIPFallback()) return;
+  let fixLat = null, fixLon = null;
+  const stop = () => {
+    navigator.geolocation.clearWatch(watchId);
+    clearTimeout(firstFixDeadline);
+    clearTimeout(refineWindow);
+  };
+
+  const watchId = navigator.geolocation.watchPosition(
+    function(pos) {
+      // User set a location by hand while we waited on the prompt/fix: theirs wins.
+      if (fixLat === null && (APP.userLat !== bootLat || APP.userLon !== bootLon)) { stop(); return; }
+      const lat = pos.coords.latitude, lon = pos.coords.longitude;
+      const moved = fixLat === null || Math.abs(lat - fixLat) > 0.02 || Math.abs(lon - fixLon) > 0.02;
+      fixLat = lat; fixLon = lon;
+      if (moved) {
+        console.log('Position fix:', lat, lon, 'accuracy:', pos.coords.accuracy, 'm');
+        loadLocationData(lat, lon);
+      } else {
+        // Refinement: nudge the marker to GPS truth without touching the view
+        setMapLocation(lat, lon, true);
+        document.getElementById('mapCoords').textContent = `${lat.toFixed(4)}°N, ${Math.abs(lon).toFixed(4)}°W`;
+      }
+      if (pos.coords.accuracy <= 30) stop();
+    },
+    function(err) {
+      console.log('Geolocation error:', err.code, err.message);
+      // code 1 = denied: dead until the user flips the site setting in the
+      // browser. code 2/3 are transient during acquisition; keep watching.
+      if (err.code === 1) {
+        stop();
+        hideLoading();
+        if (blank) gpsFailFallback('Location is blocked for this site in your browser settings. Tap the map to set your location.');
+      }
+    },
+    { enableHighAccuracy: true, maximumAge: 15000 }
+  );
+
+  // No fix after 20 s: stop the spinner and offer the map tap, but leave the
+  // watch alive — a slow permission grant or GPS cold start can still land.
+  const firstFixDeadline = setTimeout(() => {
+    if (fixLat === null) {
       hideLoading();
-      gpsFailFallback();
-      return;
+      if (blank) gpsFailFallback();
     }
-  }
-
-  // --- Attempt 2: watchPosition (more persistent, succeeds when getCurrentPosition times out) ---
-  // Uses high accuracy still but watchPosition keeps listening for a fix instead of giving up
-  try {
-    const pos = await new Promise((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        navigator.geolocation.clearWatch(watchId);
-        reject(new Error('watchPosition timeout after 20s'));
-      }, 20000);
-      const watchId = navigator.geolocation.watchPosition(
-        function(position) {
-          clearTimeout(timeoutId);
-          navigator.geolocation.clearWatch(watchId);
-          resolve(position);
-        },
-        function(error) {
-          clearTimeout(timeoutId);
-          navigator.geolocation.clearWatch(watchId);
-          reject(error);
-        },
-        { enableHighAccuracy: true, maximumAge: 300000 }
-      );
-    });
-    console.log('GPS fix (watchPosition):', pos.coords.latitude, pos.coords.longitude, 'accuracy:', pos.coords.accuracy, 'm');
-    await loadLocationData(pos.coords.latitude, pos.coords.longitude);
-    return;
-  } catch (err2) {
-    console.log('watchPosition failed:', err2.code || '', err2.message || err2);
-  }
-
-  // --- Attempt 3: low accuracy fallback (cell tower / wifi triangulation) ---
-  try {
-    const pos = await new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: false, timeout: 10000, maximumAge: 600000
-      });
-    });
-    console.log('GPS fix (low accuracy):', pos.coords.latitude, pos.coords.longitude, 'accuracy:', pos.coords.accuracy, 'm');
-    await loadLocationData(pos.coords.latitude, pos.coords.longitude);
-    return;
-  } catch (err3) {
-    console.log('Low-accuracy GPS failed:', err3.code, err3.message);
-  }
-
-  // --- Attempt 4: IP-based geolocation (city-level, last resort before map tap) ---
-  if (await tryIPFallback()) return;
-
-  // --- All methods exhausted ---
-  hideLoading();
-  gpsFailFallback();
+  }, 20000);
+  // GPS refinement gets 75 s total, then the watch stops regardless.
+  const refineWindow = setTimeout(stop, 75000);
 }
 
 // ============================================================
@@ -1761,9 +1724,10 @@ async function loadLocationData(lat, lon) {
   }
 }
 
-function setMapLocation(lat, lon) {
+function setMapLocation(lat, lon, keepView) {
   if (!APP.mapAvailable) return;
-  APP.map.setView([lat, lon], 10);
+  // Zoom 9 ≈ 65-mile-wide view at phone width (coast to Trinity Alps from Hoopa)
+  if (!keepView) APP.map.setView([lat, lon], 9);
   if (APP.userMarker) APP.map.removeLayer(APP.userMarker);
   APP.userMarker = L.marker([lat, lon], {
     icon: L.divIcon({
