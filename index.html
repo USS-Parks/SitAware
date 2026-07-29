@@ -13,7 +13,7 @@
   script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
   style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
   img-src 'self' https://*.tile.openstreetmap.org https://cdnjs.cloudflare.com https://fsapps.nwcg.gov data:;
-  connect-src https://api.weather.gov https://apps.fs.usda.gov https://services9.arcgis.com https://fsapps.nwcg.gov https://gis.blm.gov https://tigerweb.geo.census.gov;
+  connect-src 'self' https://api.weather.gov https://apps.fs.usda.gov https://services9.arcgis.com https://fsapps.nwcg.gov https://gis.blm.gov https://tigerweb.geo.census.gov;
   manifest-src 'self';
   worker-src 'self';
   font-src 'self';
@@ -2137,27 +2137,37 @@ async function fetchFireWeatherForecast() {
   try {
     const wfo = APP.weatherMeta?.gridId;
     const fwzUrl = APP.weatherMeta?.fireZoneUrl;
-    if (!wfo) return;  // weather chain absent this round: keep last-good FWF
+    if (!wfo) { if (!APP.fwfData) await tryFwfSnapshot(); return; }  // weather chain absent: keep last-good or snapshot
 
     // Get the fire weather zone code from the full URL
     const fwzCode = fwzUrl ? fwzUrl.split('/').pop() : APP.weatherMeta?.fireZone;
 
     // Fetch latest FWF product for this WFO
     const listResp = await fetchWithRetry(`https://api.weather.gov/products?type=FWF&location=${wfo}&limit=1`);
-    if (!listResp.ok) { APP.errors.push('Fire weather forecast unavailable'); return; }
+    if (!listResp.ok) { if (await tryFwfSnapshot()) return; APP.errors.push('Fire weather forecast unavailable'); return; }
     const listData = await listResp.json();
     const products = listData['@graph'] || [];
-    if (products.length === 0) return;  // transient empty listing: keep last-good
+    if (products.length === 0) { if (!APP.fwfData) await tryFwfSnapshot(); return; }  // empty listing: keep last-good or snapshot
 
     const productId = products[0].id;
     const issuedTime = products[0].issuanceTime;
 
     // Fetch the actual product text
     const prodResp = await fetchWithRetry(`https://api.weather.gov/products/${productId}`);
-    if (!prodResp.ok) { APP.errors.push('Fire weather forecast unavailable'); return; }
+    if (!prodResp.ok) { if (await tryFwfSnapshot()) return; APP.errors.push('Fire weather forecast unavailable'); return; }
     const prodData = await prodResp.json();
     const fullText = prodData.productText || '';
 
+    APP.fwfData = parseFwfProduct(fullText, issuedTime, wfo, fwzCode);
+
+  } catch (err) {
+    console.error('FWF fetch error:', err);
+    if (await tryFwfSnapshot()) return;
+    APP.errors.push('Fire weather forecast unavailable');
+  }
+}
+
+function parseFwfProduct(fullText, issuedTime, wfo, fwzCode) {
     // Extract discussion section
     let discussion = '';
     const discMatch = fullText.match(/\.DISCUSSION\.\.\.([\s\S]*?)(?=\n\n[A-Z]{2}Z\d|$)/);
@@ -2255,7 +2265,7 @@ async function fetchFireWeatherForecast() {
       }
     }
 
-    APP.fwfData = {
+    return {
       issuedTime: issuedTime,
       wfo: wfo,
       fwzCode: fwzCode,
@@ -2264,11 +2274,24 @@ async function fetchFireWeatherForecast() {
       periods: periods,
       rawText: zoneText
     };
+}
 
-  } catch (err) {
-    console.error('FWF fetch error:', err);
-    APP.errors.push('Fire weather forecast unavailable');
-  }
+// Same-origin snapshot fallback for the FWF product. Wrong-WFO data must
+// not masquerade as local: applies only when the user's WFO is unknown or
+// matches the snapshot's.
+async function tryFwfSnapshot() {
+  try {
+    const r = await fetch('./data/fwf.json', { cache: 'no-cache' });
+    if (!r.ok) return false;
+    const s = await r.json();
+    if (!s || !s.productText) return false;
+    if (APP.weatherMeta?.gridId && APP.weatherMeta.gridId !== s.wfo) return false;
+    const fwzUrl = APP.weatherMeta?.fireZoneUrl;
+    const fwzCode = fwzUrl ? fwzUrl.split('/').pop() : (APP.weatherMeta?.fireZone || '');
+    APP.fwfData = parseFwfProduct(s.productText, s.issuanceTime, s.wfo, fwzCode);
+    APP.fwfData._snapshotAt = s.fetchedAt;
+    return true;
+  } catch (e) { return false; }
 }
 
 // Expand a UGC header (e.g. "CAZ362-366>368-291315-") into the zone codes it covers.
@@ -2300,8 +2323,42 @@ async function fetchAlerts() {
 // ============================================================
 // NWCG PREDICTIVE SERVICES - 7-DAY FIRE POTENTIAL
 // ============================================================
-async function fetchFirePotential() {
+function buildFirePotential(psaMeta, dayResults) {
   const codeLongDesc = { 0:'No Data',1:'Little/No Risk',2:'Low Risk (Dry)',3:'Moderate Risk (Very Dry)',4:'Lightning Activity Expected',5:'Wind Warning',11:'Burn Environment' };
+  const fp = {
+    PSA_NAME: psaMeta.PSA_NAME || '', NAT_CODE: psaMeta.NAT_CODE || (dayResults.find(d => d && d.nat_code)?.nat_code) || '',
+    GACC_Label: psaMeta.GACC_Label || '',
+    // any day's row works — individual day layers can be empty for a PSA
+    gacc: (dayResults.find(d => d && d.gacc_name)?.gacc_name) || '',
+    Unit_ID: psaMeta.Unit_ID || '', DATE: dayResults[0] ? dayResults[0].timestampdate : Date.now()
+  };
+  for (let i = 0; i < 7; i++) {
+    const day = dayResults[i];
+    const code = day ? day.drynesscode : 0;
+    fp[`D${i+1}`] = code;
+    fp[`D${i+1}_LONG`] = codeLongDesc[code] || 'Unknown';
+    fp[`D${i+1}_DATE`] = day ? day.timestampdate : null;
+  }
+  return fp;
+}
+
+// Same-origin snapshot fallback (deploy pipeline refreshes data/ every 15
+// minutes server-side). PSA data is zoned, so the snapshot carries its query
+// point and only applies within 60 miles of it.
+async function tryFirePotentialSnapshot() {
+  try {
+    const r = await fetch('./data/fire-potential.json', { cache: 'no-cache' });
+    if (!r.ok) return false;
+    const s = await r.json();
+    if (!s || !s.point || !Array.isArray(s.dayResults)) return false;
+    if (haversine(APP.userLat, APP.userLon, s.point.lat, s.point.lon) > 60) return false;
+    APP.firePotentialData = buildFirePotential(s.psaMeta || {}, s.dayResults);
+    APP.firePotentialData._snapshotAt = s.fetchedAt;
+    return true;
+  } catch (e) { return false; }
+}
+
+async function fetchFirePotential() {
   try {
     const psaUrl = `https://fsapps.nwcg.gov/psp/arcgis/rest/services/npsg/PSA_GACC_KeyRAWS/MapServer/1/query?geometry=${APP.userLon},${APP.userLat}&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&outFields=PSA_NAME,NAT_CODE,GACC_Label,Unit_ID&returnGeometry=false&f=json`;
     const forecastBase = 'https://fsapps.nwcg.gov/psp/arcgis/rest/services/npsg/outlooks_forecast/MapServer';
@@ -2320,24 +2377,15 @@ async function fetchFirePotential() {
       const d = await r.json();
       return (d.features && d.features.length > 0) ? d.features[0].attributes : null;
     }));
-    if (dayResults.every(d => d === null)) { APP.errors.push('Fire potential data unavailable'); return; }
-    const fp = {
-      PSA_NAME: psaMeta.PSA_NAME || '', NAT_CODE: psaMeta.NAT_CODE || (dayResults.find(d => d && d.nat_code)?.nat_code) || '',
-      GACC_Label: psaMeta.GACC_Label || '',
-      // any day's row works — individual day layers can be empty for a PSA
-      gacc: (dayResults.find(d => d && d.gacc_name)?.gacc_name) || '',
-      Unit_ID: psaMeta.Unit_ID || '', DATE: dayResults[0] ? dayResults[0].timestampdate : Date.now()
-    };
-    for (let i = 0; i < 7; i++) {
-      const day = dayResults[i];
-      const code = day ? day.drynesscode : 0;
-      fp[`D${i+1}`] = code;
-      fp[`D${i+1}_LONG`] = codeLongDesc[code] || 'Unknown';
-      fp[`D${i+1}_DATE`] = day ? day.timestampdate : null;
+    if (dayResults.every(d => d === null)) {
+      if (await tryFirePotentialSnapshot()) return;
+      APP.errors.push('Fire potential data unavailable');
+      return;
     }
-    APP.firePotentialData = fp;
+    APP.firePotentialData = buildFirePotential(psaMeta, dayResults);
   } catch (err) {
     console.error('NWCG fire potential fetch error:', err);
+    if (await tryFirePotentialSnapshot()) return;
     APP.errors.push('Fire potential data unavailable');
   }
 }
@@ -2357,6 +2405,31 @@ const DRYNESS_MAP = {
   11:{label:'Burn',short:'Burn',css:'fp-burn',height:55}
 };
 
+// Same-origin snapshot fallback for the outlook. GACC-wide data, so it
+// applies only when this user's own GACC resolution points at the
+// snapshot's GACC (or a previously cached outlook already matches its id).
+async function tryGaccOutlookSnapshot() {
+  try {
+    const r = await fetch('./data/gacc-outlook.json', { cache: 'no-cache' });
+    if (!r.ok) return false;
+    const s = await r.json();
+    if (!s || !s.lf || !s.gaccName) return false;
+    const region = String(APP.forestData?.properties?.REGION || '').padStart(2, '0');
+    const want = (APP.firePotentialData?.gacc || APP.firePotentialData?.GACC_Label || APP.REGION_GACC_NAMES[region] || '').trim().toLowerCase();
+    const nameMatches = want && s.gaccName.toLowerCase().includes(want);
+    const idMatches = APP.gaccOutlook && APP.gaccOutlook.gaccId === s.gaccId;
+    if (!nameMatches && !idMatches) return false;
+    APP.gaccOutlook = {
+      gaccId: s.gaccId, gaccName: s.gaccName,
+      published: s.lf.forecastPublished || '', startDate: s.lf.startDate || '',
+      weatherHtml: s.lf.forecastWeather || '', fuelsHtml: s.lf.forecastFuels || '',
+      psas: s.psas || [], rows: s.rows || [],
+      _snapshotAt: s.fetchedAt
+    };
+    return true;
+  } catch (e) { return false; }
+}
+
 async function fetchGaccOutlook() {
   try {
     // The GACC identity has three independent sources so the PSA endpoint
@@ -2374,7 +2447,7 @@ async function fetchGaccOutlook() {
         const region = String(APP.forestData?.properties?.REGION || '').padStart(2, '0');
         gaccLabel = APP.REGION_GACC_NAMES[region] || '';
       }
-      if (!gaccName && !gaccLabel) return;  // no identity available: keep last-good
+      if (!gaccName && !gaccLabel) { if (!APP.gaccOutlook) await tryGaccOutlookSnapshot(); return; }
       const gaccsResp = await fetchWithRetry(`${GACC_API}/gaccs?geo=false`);
       if (!gaccsResp.ok) throw new Error(`gaccs ${gaccsResp.status}`);
       const gaccs = await gaccsResp.json();
@@ -2384,7 +2457,7 @@ async function fetchGaccOutlook() {
         const cands = (gaccs || []).filter(g => g.name && g.name.toLowerCase().includes(gaccLabel.trim().toLowerCase()));
         if (cands.length === 1) gacc = cands[0];
       }
-      if (!gacc) return;  // ambiguous GACC match: keep last-good
+      if (!gacc) { if (!APP.gaccOutlook) await tryGaccOutlookSnapshot(); return; }  // ambiguous match: keep last-good
     }
     const lfResp = await fetchWithRetry(`${GACC_API}/gaccs/${gacc.gaccId}/latest-forecast`);
     if (!lfResp.ok) throw new Error(`latest-forecast ${lfResp.status}`);
@@ -2404,6 +2477,7 @@ async function fetchGaccOutlook() {
     };
   } catch (err) {
     console.error('GACC outlook fetch error:', err);
+    if (await tryGaccOutlookSnapshot()) return;
     APP.errors.push('GACC outlook unavailable');
   }
 }
@@ -2657,6 +2731,10 @@ function renderGaccOutlook() {
   const iso = (g.published || '').replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2}(?:\.\d+)?)([+-]\d{4})?$/, '$1-$2-$3T$4:$5:$6$7');
   const pub = new Date(iso);
   if (!isNaN(pub)) pubLabel += ' · pub ' + pub.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  if (g._snapshotAt) {
+    const snap = new Date(g._snapshotAt);
+    if (!isNaN(snap)) pubLabel += ' · snapshot ' + snap.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
   document.getElementById('gaccTimestamp').textContent = pubLabel;
 
   // 7 day columns from the forecast cycle start (UTC calendar dates)
@@ -2771,7 +2849,7 @@ function renderConusMap() {
     </a>
     <div id="conusErr" style="display:none;font-size:12px;color:var(--text-dim);padding:12px 0;">
       Fire potential map unavailable from NWCG right now.
-      <button type="button" class="conus-day-btn" onclick="setConusDay(APP.conusSel || 1, true)">Retry</button>
+      <button type="button" class="conus-day-btn" onclick="setConusDay(APP.conusSel || 1)">Retry</button>
     </div>
     <div style="font-size:10px;color:var(--text-dim);margin-top:6px;">Tap map to open full size · Source: NWCG Predictive Services</div>`;
   setConusDay(sel);
@@ -2781,7 +2859,7 @@ function setConusDay(n, bust) {
   const day = (APP.conusDays || [])[n - 1];
   if (!day) return;
   APP.conusSel = n;
-  if (!bust) APP.conusImgRetried = false;
+  if (!bust) APP.conusImgStage = 0;
   // Fresh attempt: show the image slot, clear any prior failure note
   document.getElementById('conusLink').style.display = '';
   document.getElementById('conusErr').style.display = 'none';
@@ -2799,18 +2877,22 @@ function setConusDay(n, bust) {
 }
 
 function conusImgOk() {
-  APP.conusImgRetried = false;
+  APP.conusImgStage = 0;
   document.getElementById('conusLink').style.display = '';
   document.getElementById('conusErr').style.display = 'none';
 }
 
 function conusImgError() {
   // A broken <img> renders as a glyph plus link-styled alt text — banned.
-  // One silent cache-busted retry for a transient NWCG blip, then an honest
-  // unavailable note with a Retry, matching the app's other source failures.
-  if (!APP.conusImgRetried) {
-    APP.conusImgRetried = true;
-    setConusDay(APP.conusSel || 1, true);
+  // Ladder: one cache-busted live retry, then the same-origin snapshot the
+  // deploy pipeline refreshes every 15 minutes, then an honest note + Retry.
+  APP.conusImgStage = (APP.conusImgStage || 0) + 1;
+  const n = APP.conusSel || 1;
+  if (APP.conusImgStage === 1) { setConusDay(n, true); return; }
+  if (APP.conusImgStage === 2) {
+    const img = document.getElementById('conusImg');
+    img.src = `./data/conus/d${n}_0.png`;
+    document.getElementById('conusLink').href = img.src;
     return;
   }
   document.getElementById('conusLink').style.display = 'none';
