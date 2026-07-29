@@ -1,0 +1,38 @@
+# Single serialized deploy pipeline: one production deployment at a time,
+# in-flight deploys are never cancelled, overlapping triggers queue.
+# Deploys on every push to main AND on a 15-minute schedule — the scheduled
+# runs refresh the federal data snapshots under data/ that the app uses as
+# same-origin fallback when a client's network cannot reach federal hosts
+# directly (agency content filters).
+# NOTE: GitHub pauses scheduled workflows after ~60 days without repo
+# activity; any push re-enables them.
+name: deploy
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch federal data snapshots
+        # A snapshot failure must never block a deploy; whatever fetched, ships
+        run: python3 snapshot.py || true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4

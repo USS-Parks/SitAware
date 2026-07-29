@@ -1,0 +1,4 @@
+# Data snapshots are fetched at deploy time by snapshot.py, never committed
+data/
+# Local tooling state
+.claude/
