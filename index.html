@@ -1667,7 +1667,11 @@ function stopGeolocate() {
 // CORE DATA LOADING
 // ============================================================
 async function loadLocationData(lat, lon) {
-  showLoading('Loading conditions...');
+  // Full-screen loading only when the page has nothing yet: a refresh with
+  // content on screen runs silently — on a slow link the overlay would sit
+  // over perfectly good data for the whole fetch window.
+  const firstLoad = APP.lastFetch === null;
+  if (firstLoad) showLoading('Loading conditions...');
   // Location changed: previous location's data must not survive a partial fetch failure.
   // Same location: keep last-good data so a failed source degrades to stale, not blank.
   const moved = APP.userLat === null || Math.abs(APP.userLat - lat) > 0.02 || Math.abs(APP.userLon - lon) > 0.02;
@@ -1685,10 +1689,10 @@ async function loadLocationData(lat, lon) {
   coordsEl.textContent = `${lat.toFixed(4)}\u00B0N, ${Math.abs(lon).toFixed(4)}\u00B0W`;
   coordsEl.classList.add('visible');
 
-  // Show skeleton loaders
+  // Skeletons only on a blank page; refreshes keep real content in place
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('dataPanels').style.display = 'block';
-  document.getElementById('skeletonLoaders').style.display = 'block';
+  if (firstLoad) document.getElementById('skeletonLoaders').style.display = 'block';
 
   // Clear previous layers only on a real move: a same-location refresh keeps
   // the last-good outlines on screen if a boundary refetch fails (stale, not blank).
@@ -2115,8 +2119,11 @@ async function fetchWeatherData() {
 async function fetchWithRetry(url, retries = 2) {
   for (let i = 0; i <= retries; i++) {
     try {
-      // Timeout so a hung upstream (common on federal GIS servers under load) fails fast
-      const resp = await fetch(url, { signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined });
+      // Generous ceiling: on a shared station uplink the heavy federal fetches
+      // legitimately take 20-30 s while a dozen requests contend for the pipe.
+      // 15 s was tuned for a fast link and cut down slow-but-live responses;
+      // keep-last-good handles the truly dead ones.
+      const resp = await fetch(url, { signal: AbortSignal.timeout ? AbortSignal.timeout(30000) : undefined });
       if (resp.ok || i === retries) return resp;
       await new Promise(r => setTimeout(r, 1000 * (i + 1)));
     } catch (err) {
