@@ -2730,16 +2730,26 @@ function renderConusMap() {
     <div class="conus-day-strip">${APP.conusDays.map(d =>
       `<button type="button" class="conus-day-btn" id="conusBtn${d.n}" onclick="setConusDay(${d.n})">${d.label}</button>`).join('')}</div>
     <a id="conusLink" href="#" target="_blank" rel="noopener noreferrer">
-      <img id="conusImg" class="conus-map-img" alt="NWCG CONUS 7-day significant fire potential map">
+      <img id="conusImg" class="conus-map-img" alt="NWCG CONUS 7-day significant fire potential map" onload="conusImgOk()" onerror="conusImgError()">
     </a>
+    <div id="conusErr" style="display:none;font-size:12px;color:var(--text-dim);padding:12px 0;">
+      Fire potential map unavailable from NWCG right now.
+      <button type="button" class="conus-day-btn" onclick="setConusDay(APP.conusSel || 1, true)">Retry</button>
+    </div>
     <div style="font-size:10px;color:var(--text-dim);margin-top:6px;">Tap map to open full size · Source: NWCG Predictive Services</div>`;
   setConusDay(sel);
 }
 
-function setConusDay(n) {
+function setConusDay(n, bust) {
   const day = (APP.conusDays || [])[n - 1];
   if (!day) return;
-  const url = `https://fsapps.nwcg.gov/psp/npsg/data/conus-sevenday/d${n}_0.png${APP.conusVer ? '?v=' + APP.conusVer : ''}`;
+  APP.conusSel = n;
+  if (!bust) APP.conusImgRetried = false;
+  // Fresh attempt: show the image slot, clear any prior failure note
+  document.getElementById('conusLink').style.display = '';
+  document.getElementById('conusErr').style.display = 'none';
+  let url = `https://fsapps.nwcg.gov/psp/npsg/data/conus-sevenday/d${n}_0.png${APP.conusVer ? '?v=' + APP.conusVer : ''}`;
+  if (bust) url += (url.includes('?') ? '&' : '?') + 'r=' + Date.now();
   document.getElementById('conusImg').src = url;
   document.getElementById('conusLink').href = url;
   for (let i = 1; i <= 7; i++) {
@@ -2749,6 +2759,25 @@ function setConusDay(n) {
   const d = day.ms ? new Date(day.ms) : null;
   document.getElementById('conusDayLabel').textContent =
     `Day ${n}` + (d ? ` · ${d.toLocaleDateString(undefined, { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' })}` : '');
+}
+
+function conusImgOk() {
+  APP.conusImgRetried = false;
+  document.getElementById('conusLink').style.display = '';
+  document.getElementById('conusErr').style.display = 'none';
+}
+
+function conusImgError() {
+  // A broken <img> renders as a glyph plus link-styled alt text — banned.
+  // One silent cache-busted retry for a transient NWCG blip, then an honest
+  // unavailable note with a Retry, matching the app's other source failures.
+  if (!APP.conusImgRetried) {
+    APP.conusImgRetried = true;
+    setConusDay(APP.conusSel || 1, true);
+    return;
+  }
+  document.getElementById('conusLink').style.display = 'none';
+  document.getElementById('conusErr').style.display = 'block';
 }
 
 // -- HUMIDITY RECOVERY --
