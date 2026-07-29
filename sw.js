@@ -1,8 +1,7 @@
 // SITAWARE Service Worker
 // Handles offline caching and notification scheduling
 
-// v6: force every device to discard stale cached builds from 2026-07-29
-const CACHE_NAME = 'sitaware-v6'
+const CACHE_NAME = 'sitaware-v5'
 const CACHE_URLS = [
   './index.html',
   './manifest.json',
@@ -41,7 +40,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url)
 
   // API calls and map tiles - always network, never cached
-  // (tiles would grow the cache unbounded)
+  // (tiles would grow the cache unbounded; ipwho.is must not serve a stale location)
   if (
     url.hostname === 'api.weather.gov' ||
     url.hostname === 'apps.fs.usda.gov' ||
@@ -49,6 +48,7 @@ self.addEventListener('fetch', (event) => {
     url.hostname === 'fsapps.nwcg.gov' ||
     url.hostname === 'gis.blm.gov' ||
     url.hostname === 'tigerweb.geo.census.gov' ||
+    url.hostname === 'ipwho.is' ||
     url.hostname.endsWith('tile.openstreetmap.org')
   ) {
     event.respondWith(fetch(event.request))
