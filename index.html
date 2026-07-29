@@ -652,7 +652,10 @@ html, body {
   color: var(--cream);
   font-weight: 500;
   text-align: right;
-  flex-shrink: 0;
+  /* long FWF values (valleys/ridges strings) must shrink and wrap, not overlap the label */
+  flex-shrink: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
   margin-left: 8px;
 }
 .swc-row-trend {
@@ -3124,7 +3127,8 @@ function renderFireIndices() {
 
 function swcRow(label, value, valueClass) {
   const cls = valueClass ? ' ' + valueClass : '';
-  return `<div class="swc-row"><span class="swc-row-label">${label}</span><span class="swc-row-value${cls}">${value}</span></div>`;
+  const val = String(value).replace(/^\.+\s*/, ''); // strip FWF dot leaders
+  return `<div class="swc-row"><span class="swc-row-label">${label}</span><span class="swc-row-value${cls}">${val}</span></div>`;
 }
 
 function degreesToCardinal(deg) {
