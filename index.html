@@ -672,12 +672,6 @@ html, body {
 .swc-val-na { color: var(--text-dim); font-style: italic; font-weight: 400; }
 /* Body-copy color that flips with the theme — use instead of inline var(--cream) */
 .ink { color: var(--cream); }
-.map-locate-btn {
-  position: absolute; bottom: 12px; left: 10px; z-index: 1000;
-  background: rgba(20, 30, 24, 0.88); color: var(--cream);
-  border: 1px solid var(--surface-border); border-radius: 6px;
-  padding: 6px 10px; font-size: 11px; font-weight: 600; cursor: pointer;
-}
 .swc-terrain-tag {
   color: var(--text-muted);
   font-size: 9px;
@@ -1008,7 +1002,6 @@ body.light-mode .skeleton {
   <div id="map" role="application" aria-label="Interactive map"></div>
   <div class="map-coords" id="mapCoords" aria-live="polite"></div>
   <div class="map-tap-hint" id="mapTapHint">&#x1F4CD; Tap the map to set your location</div>
-  <button id="locateBtn" class="map-locate-btn" title="Return to my GPS location">&#x1F4CD; Locate Me</button>
 </div>
 
 <!-- LOADING OVERLAY -->
@@ -1411,7 +1404,6 @@ const APP = {
   fireAlerts: null,
   errors: [],
   lastFetch: null,
-  locationMode: 'gps',
 
   USFS_URL: 'https://services9.arcgis.com/5rkKDrGuFJxI7V5b/arcgis/rest/services/S_USA_AdministrativeForest/FeatureServer/0/query',
   USFS_FALLBACK_URL: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_ForestSystemBoundaries_01/MapServer/0/query',
@@ -1481,7 +1473,7 @@ function renderLocationResults(locations) {
       const lat = parseFloat(this.dataset.lat);
       const lon = parseFloat(this.dataset.lon);
       clearLocationError();
-      loadLocationData(lat, lon, 'manual');
+      loadLocationData(lat, lon);
     });
   });
 }
@@ -1522,7 +1514,7 @@ function useSelectedForest() {
   const [lat, lon] = sel.value.split(',').map(Number);
   clearLocationError();
   document.getElementById('locPanel').classList.remove('visible');
-  loadLocationData(lat, lon, 'manual');
+  loadLocationData(lat, lon);
 }
 
 function filterLocationsBySearch(query) {
@@ -1566,7 +1558,7 @@ function filterLocationsBySearch(query) {
       const lat = parseFloat(this.dataset.lat);
       const lon = parseFloat(this.dataset.lon);
       clearLocationError();
-      loadLocationData(lat, lon, 'manual');
+      loadLocationData(lat, lon);
     });
   });
 }
@@ -1582,8 +1574,7 @@ function initMap() {
     return;
   }
   try {
-    // Pre-location framing leans West (core user base); geolocation recenters immediately
-    APP.map = L.map('map', { center: [41.5, -117.5], zoom: 5, zoomControl: true, attributionControl: true });
+    APP.map = L.map('map', { center: [39.8283, -98.5795], zoom: 4, zoomControl: true, attributionControl: true });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors', maxZoom: 18
     }).addTo(APP.map);
@@ -1636,7 +1627,7 @@ async function geolocateUser() {
       });
     });
     console.log('GPS fix (high accuracy):', pos.coords.latitude, pos.coords.longitude, 'accuracy:', pos.coords.accuracy, 'm');
-    await loadLocationData(pos.coords.latitude, pos.coords.longitude, 'gps');
+    await loadLocationData(pos.coords.latitude, pos.coords.longitude);
     return;
   } catch (err) {
     console.log('High-accuracy GPS failed:', err.code, err.message);
@@ -1671,7 +1662,7 @@ async function geolocateUser() {
       );
     });
     console.log('GPS fix (watchPosition):', pos.coords.latitude, pos.coords.longitude, 'accuracy:', pos.coords.accuracy, 'm');
-    await loadLocationData(pos.coords.latitude, pos.coords.longitude, 'gps');
+    await loadLocationData(pos.coords.latitude, pos.coords.longitude);
     return;
   } catch (err2) {
     console.log('watchPosition failed:', err2.code || '', err2.message || err2);
@@ -1685,7 +1676,7 @@ async function geolocateUser() {
       });
     });
     console.log('GPS fix (low accuracy):', pos.coords.latitude, pos.coords.longitude, 'accuracy:', pos.coords.accuracy, 'm');
-    await loadLocationData(pos.coords.latitude, pos.coords.longitude, 'gps');
+    await loadLocationData(pos.coords.latitude, pos.coords.longitude);
     return;
   } catch (err3) {
     console.log('Low-accuracy GPS failed:', err3.code, err3.message);
@@ -1699,10 +1690,7 @@ async function geolocateUser() {
 // ============================================================
 // CORE DATA LOADING
 // ============================================================
-async function loadLocationData(lat, lon, source) {
-  // 'gps' = follow the user; 'manual' = user pinned this spot deliberately.
-  // Omitted source keeps the current mode (refreshes, retries).
-  if (source) APP.locationMode = source;
+async function loadLocationData(lat, lon) {
   showLoading('Loading conditions...');
   // Location changed: previous location's data must not survive a partial fetch failure.
   // Same location: keep last-good data so a failed source degrades to stale, not blank.
@@ -1865,8 +1853,6 @@ function updateHeaderContext() {
     name = APP.landData.unitName || APP.landData.agencyName;
   } else if (APP.tribalData) {
     name = APP.tribalData.name;
-  } else if (APP.weatherMeta && APP.weatherMeta.city && APP.weatherMeta.city !== '--') {
-    name = APP.weatherMeta.city + (APP.weatherMeta.state && APP.weatherMeta.state !== '--' ? ', ' + APP.weatherMeta.state : '');
   }
   ctx.textContent = name;
 }
@@ -1884,14 +1870,14 @@ function useManualCoords() {
   if (isNaN(lat) || isNaN(lon)) { showLocationError('Enter valid numbers for latitude and longitude.'); return; }
   if (lat < 17 || lat > 72 || lon < -180 || lon > -64) { showLocationError('Coordinates appear outside the US. Lat: 17-72, Lon: -180 to -64.'); return; }
   clearLocationError();
-  loadLocationData(lat, lon, 'manual');
+  loadLocationData(lat, lon);
 }
 
 function enableMapClick() {
   if (!APP.mapAvailable) return;
   APP.map.on('click', function(e) {
     if (e.latlng.lat > 17 && e.latlng.lat < 72 && e.latlng.lng > -180 && e.latlng.lng < -64) {
-      loadLocationData(e.latlng.lat, e.latlng.lng, 'manual');
+      loadLocationData(e.latlng.lat, e.latlng.lng);
     }
   });
 }
@@ -2457,21 +2443,6 @@ function renderForestBanner() {
     document.getElementById('forestAcres').textContent = APP.tribalData.acres ? `${APP.tribalData.acres.toLocaleString()} acres` : '-- acres';
     document.getElementById('forestGACC').textContent = '';
     banner.classList.add('visible');
-    return;
-  }
-  // No forest, public-land, or tribal unit at this point — fall back to regional
-  // identity (NWS place, PSA, fire weather zone) so the banner still anchors the user
-  const wm = APP.weatherMeta, fp = APP.firePotentialData;
-  if (wm || fp) {
-    const place = (wm && wm.city && wm.city !== '--')
-      ? `${wm.city}${wm.state && wm.state !== '--' ? ', ' + wm.state : ''}`
-      : 'Regional Fire Conditions';
-    document.getElementById('forestName').textContent = place;
-    document.getElementById('forestRegion').textContent = fp && fp.PSA_NAME ? `PSA: ${fp.PSA_NAME}` : 'No federal land unit at this point';
-    document.getElementById('forestAcres').textContent = wm && wm.fireZone && wm.fireZone !== '--' ? `Fire Wx Zone: ${wm.fireZone}` : '';
-    document.getElementById('forestGACC').textContent = fp && (fp.GACC_Label || fp.gacc) ? `GACC: ${fp.GACC_Label || fp.gacc}` : '';
-    banner.classList.add('visible');
-    renderTribalBanner();
     return;
   }
   banner.classList.remove('visible');
@@ -3358,28 +3329,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const proGrid = document.getElementById('metricGridPro');
   if (proGrid) proGrid.style.display = 'grid';
 
-  // Locate Me: explicit return to GPS-follow mode from a pinned location
-  document.getElementById('locateBtn').addEventListener('click', () => {
-    APP.locationMode = 'gps';
-    geolocateUser();
-  });
-
-  // Render last-good cached data immediately (honestly timestamped), then always
-  // geolocate: a fresh page load snaps to GPS. A manually pinned spot holds only
-  // for the life of the page session (see visibilitychange below).
+  // Render last-good cached data immediately (honestly timestamped), then fetch fresh.
   restoreCache();
   geolocateUser();
 
-  // Foregrounding the installed PWA doesn't reload the page — refresh there too,
-  // honoring the same mode split
+  // Foregrounding the installed PWA doesn't reload the page — re-acquire GPS there
+  // too, so the app geolocates on every open, not just full page loads
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' &&
         APP.lastFetch && Date.now() - APP.lastFetch > STALE_REFRESH_MS) {
-      if (APP.locationMode === 'manual' && APP.userLat !== null) {
-        loadLocationData(APP.userLat, APP.userLon);
-      } else {
-        geolocateUser();
-      }
+      geolocateUser();
     }
   });
 });
