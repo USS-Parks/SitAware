@@ -433,6 +433,11 @@ html, body {
 .fp-burn { background: #7B3FA0; }
 .fp-nodata { background: #555; }
 
+/* Official NWCG dryness palette: moist green, dry yellow, very-dry brown */
+.fp-moist { background: #8BC53F; }
+.fp-dry { background: #F7E926; }
+.fp-verydry { background: #A67C2E; }
+
 /* GACC outlook grid */
 .gacc-grid { display: grid; gap: 2px; font-size: 10px; margin-bottom: 10px; }
 .gacc-grid-label { padding: 3px 4px; color: var(--cream-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -2397,12 +2402,12 @@ const GACC_API = 'https://fsapps.nwcg.gov/psp/npsg/forecast/api';
 
 const DRYNESS_MAP = {
   0:{label:'No Data',short:'--',css:'fp-nodata',height:15},
-  1:{label:'Moist',short:'Low',css:'fp-low',height:25},
-  2:{label:'Dry',short:'Low',css:'fp-low',height:30},
-  3:{label:'Very Dry',short:'Mod',css:'fp-mod',height:45},
+  1:{label:'Little/No Risk (Moist)',short:'Low',css:'fp-moist',height:25},
+  2:{label:'Low Risk (Dry)',short:'Dry',css:'fp-dry',height:30},
+  3:{label:'Moderate Risk (Very Dry)',short:'Mod',css:'fp-verydry',height:45},
   4:{label:'Lightning',short:'Ltng',css:'fp-lightning',height:55},
   5:{label:'Wind',short:'Wind',css:'fp-wind',height:55},
-  11:{label:'Burn',short:'Burn',css:'fp-burn',height:55}
+  11:{label:'Burn Environment',short:'Burn',css:'fp-burn',height:55}
 };
 
 // Same-origin snapshot fallback for the outlook. GACC-wide data, so it
@@ -2774,8 +2779,9 @@ function renderGaccOutlook() {
     }
     html += `</div>`;
     html += `<div class="gacc-legend">
-      <span><i class="gacc-swatch fp-low"></i>Low risk (moist/dry)</span>
-      <span><i class="gacc-swatch fp-mod"></i>Moderate (very dry)</span>
+      <span><i class="gacc-swatch fp-moist"></i>Little/no risk (moist)</span>
+      <span><i class="gacc-swatch fp-dry"></i>Low risk (dry)</span>
+      <span><i class="gacc-swatch fp-verydry"></i>Moderate risk (very dry)</span>
       <span><i class="gacc-swatch fp-lightning"></i>Lightning</span>
       <span><i class="gacc-swatch fp-wind"></i>Wind</span>
       <span><i class="gacc-swatch fp-burn"></i>Burn environment</span>
