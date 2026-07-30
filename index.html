@@ -653,8 +653,28 @@ html, body {
   color: var(--cream);
   font-weight: 500;
   text-align: right;
-  flex-shrink: 0;
+  min-width: 0;
+  overflow-wrap: break-word;
   margin-left: 8px;
+}
+/* FWF sub-labeled values (Valleys vs Ridges): indented under their field row */
+.swc-row-group { border-bottom: 1px solid var(--surface-border); padding-bottom: 5px; }
+.swc-row-group:last-child { border-bottom: none; }
+.swc-row-group .swc-row { border-bottom: none; padding-bottom: 2px; }
+.swc-subrow {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 12px 2px 26px;
+  font-size: 12px;
+}
+.swc-subrow-label { color: var(--text-muted); font-size: 11px; flex-shrink: 0; }
+.swc-subrow-value { color: var(--cream); font-weight: 500; text-align: right; min-width: 0; overflow-wrap: break-word; }
+.swc-subrow-text {
+  padding: 0 12px 4px 26px;
+  font-size: 12px;
+  color: var(--cream);
+  line-height: 1.45;
 }
 .swc-row-trend {
   color: var(--text-dim);
@@ -902,6 +922,9 @@ body.light-mode .swc-section-title { color: var(--black); }
 body.light-mode .swc-row { border-bottom-color: #e8e4db; }
 body.light-mode .swc-row-value { color: var(--black); }
 body.light-mode .swc-row-label { color: #666; }
+body.light-mode .swc-row-group { border-bottom-color: #e8e4db; }
+body.light-mode .swc-subrow-value, body.light-mode .swc-subrow-text { color: var(--black); }
+body.light-mode .swc-subrow-label { color: #666; }
 body.light-mode .forest-banner { background: var(--forest-light); }
 body.light-mode .source-footer { color: #999; }
 body.light-mode .source-footer a { color: var(--orange-dark); }
@@ -2172,6 +2195,48 @@ async function fetchFireWeatherForecast() {
   }
 }
 
+// An FWF field value is either inline prose or indented sub-labeled lines
+// ("    Valleys/lwr slopes...49-52"). Returns a cleaned string, or
+// [{label, value}] when sub-labels are present. Deeply indented lines are
+// wrapped continuations of whatever came before them.
+function parseFwfField(raw) {
+  const parts = [];
+  let scalar = '';
+  for (const line of raw.split('\n')) {
+    if (!line.trim()) continue;
+    const indent = line.length - line.trimStart().length;
+    const m = indent > 0 && indent <= 8 && line.match(/^ +([A-Za-z][A-Za-z\/'& ]*?)\.{3,}(.*)$/);
+    if (m) parts.push({ label: m[1].trim(), value: m[2].trim() });
+    else if (parts.length) parts[parts.length - 1].value += ' ' + line.trim();
+    else scalar += (scalar ? ' ' : '') + line.trim();
+  }
+  const clean = s => s.replace(/\.{3,}/g, ', ')
+    .replace(/\s+/g, ' ').trim()
+    .replace(/^[.,\s]+/, '').replace(/[.\s]+$/, '')
+    .replace(/ percent\b/gi, '%');
+  if (parts.length) {
+    for (const p of parts) p.value = clean(p.value);
+    return parts.filter(p => p.value);
+  }
+  return clean(scalar);
+}
+
+// Field header patterns vary by WFO (title case vs ALL CAPS, dot-count padding)
+const FWF_FIELDS = {
+  sky: 'Sky\\/Weather',
+  maxTemp: 'Max Temperature',
+  minTemp: 'Min Temperature',
+  minHumidity: 'Min Humidity',
+  maxHumidity: 'Max Humidity',
+  winds20ft: '20-Foot Winds',
+  transportWind: 'Transport Winds?',
+  mixingHeight: 'Mixing Height',
+  snowLevel: 'Snow Level',
+  ventilation: '(?:Ventilation|Dispersion)',
+  haines: 'Haines\\s*(?:Index)?',
+  lal: '(?:LAL|Lightning Activity)'
+};
+
 function parseFwfProduct(fullText, issuedTime, wfo, fwzCode) {
     // Extract discussion section
     let discussion = '';
@@ -2218,53 +2283,15 @@ function parseFwfProduct(fullText, issuedTime, wfo, fwzCode) {
         const periodData = {};
         periodData.name = periodName.charAt(0) + periodName.slice(1).toLowerCase();
 
-        // Parse each field
-        const skyMatch = block.match(/\* Sky\/Weather\.\.\.([\s\S]*?)(?=\n\s*\*|\n*$)/);
-        if (skyMatch) periodData.sky = skyMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
-
-        const maxTempMatch = block.match(/\* Max Temperature\.\.\.([\s\S]*?)(?=\n\s*\*|\n*$)/);
-        if (maxTempMatch) periodData.maxTemp = maxTempMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
-
-        const minTempMatch = block.match(/\* Min Temperature\.\.\.([\s\S]*?)(?=\n\s*\*|\n*$)/);
-        if (minTempMatch) periodData.minTemp = minTempMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
-
-        const minHumMatch = block.match(/\* Min Humidity\.\.\.([\s\S]*?)(?=\n\s*\*|\n*$)/);
-        if (minHumMatch) periodData.minHumidity = minHumMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
-
-        const maxHumMatch = block.match(/\* Max Humidity\.\.\.([\s\S]*?)(?=\n\s*\*|\n*$)/);
-        if (maxHumMatch) periodData.maxHumidity = maxHumMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
-
-        const mixMatch = block.match(/\* MIXING HEIGHT\.\.\.([\s\S]*?)(?=\n\s*\*|\n*$)/);
-        if (mixMatch) periodData.mixingHeight = mixMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
-
-        const snowMatch = block.match(/\* SNOW LEVEL\.\.\.([\s\S]*?)(?=\n\s*\*|\n*$)/);
-        if (snowMatch) periodData.snowLevel = snowMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
-
-        // 20-foot winds — preserve valleys/slopes and ridges as separate fields
-        const windSection = block.match(/\* 20-FOOT WINDS\.\.\.\s*\n([\s\S]*?)(?=\n\s*\.\w|\n*$)/);
-        if (windSection) {
-          const windText = windSection[1];
-          const valleyMatch = windText.match(/VALLEYS\/SLOPES\.\.\.\.\.\.\.([\s\S]*?)(?=\n\s{4}RIDGES|$)/);
-          const ridgeMatch = windText.match(/RIDGES\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.([\s\S]*?)$/);
-          if (valleyMatch) periodData.windValley = valleyMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
-          if (ridgeMatch) periodData.windRidge = ridgeMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
+        // Parse each field; leader dots after the header are consumed so the
+        // value never starts with them
+        for (const key of Object.keys(FWF_FIELDS)) {
+          const m = block.match(new RegExp('\\* ' + FWF_FIELDS[key] + '\\.{3,}([\\s\\S]*?)(?=\\n\\s*\\*|\\n*$)', 'i'));
+          if (m) {
+            const v = parseFwfField(m[1]);
+            if (v && v.length) periodData[key] = v;
+          }
         }
-
-        // Transport winds (some zones include these)
-        const transMatch = block.match(/\* TRANSPORT WINDS?\.\.\.([\s\S]*?)(?=\n\s*\*|\n*$)/);
-        if (transMatch) periodData.transportWind = transMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
-
-        // Ventilation / dispersion (some zones)
-        const ventMatch = block.match(/\* (?:VENTILATION|DISPERSION)\.\.\.([\s\S]*?)(?=\n\s*\*|\n*$)/);
-        if (ventMatch) periodData.ventilation = ventMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
-
-        // Haines (some zones)
-        const hainesMatch = block.match(/\* HAINES\s*(?:INDEX)?\.\.\.([\s\S]*?)(?=\n\s*\*|\n*$)/);
-        if (hainesMatch) periodData.haines = hainesMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
-
-        // LAL (Lightning Activity Level)
-        const lalMatch = block.match(/\* (?:LAL|LIGHTNING ACTIVITY)\.\.\.([\s\S]*?)(?=\n\s*\*|\n*$)/);
-        if (lalMatch) periodData.lal = lalMatch[1].replace(/\s+/g, ' ').trim().replace(/\.\s*$/, '');
 
         periods.push(periodData);
       }
@@ -3111,53 +3138,22 @@ function renderFireIndices() {
 
       let rows = '';
 
-      if (period.sky) {
-        rows += swcRow('Sky / Weather', period.sky);
-      }
-      if (period.maxTemp) {
-        rows += swcRow('Max Temperature', period.maxTemp + '\u00b0F');
-      }
-      if (period.minTemp) {
-        rows += swcRow('Min Temperature', period.minTemp + '\u00b0F');
-      }
-      if (period.minHumidity) {
-        const rhVal = period.minHumidity.replace(/ percent/i, '%');
-        const rhNum = parseInt(rhVal);
-        let rhClass = '';
-        if (!isNaN(rhNum)) {
-          const lowEnd = parseInt(rhVal.split('-')[0]);
-          if (lowEnd < 15) rhClass = 'swc-val-danger';
-          else if (lowEnd < 25) rhClass = 'swc-val-warn';
-          else rhClass = 'swc-val-good';
-        }
-        rows += swcRow('Min Humidity', rhVal, rhClass);
-      }
-      if (period.maxHumidity) {
-        rows += swcRow('Max Humidity', period.maxHumidity.replace(/ percent/i, '%'));
-      }
-      if (period.mixingHeight) {
-        rows += swcRow('Mixing Height', period.mixingHeight);
-      }
-      if (period.snowLevel) {
-        rows += swcRow('Snow Level', period.snowLevel);
-      }
-      if (period.windValley) {
-        rows += swcRow('20-ft Wind (Valleys)', period.windValley);
-      }
-      if (period.windRidge) {
-        rows += swcRow('20-ft Wind (Ridges)', period.windRidge);
-      }
-      if (period.transportWind) {
-        rows += swcRow('Transport Wind', period.transportWind);
-      }
-      if (period.ventilation) {
-        rows += swcRow('Ventilation', period.ventilation);
-      }
-      if (period.haines) {
-        rows += swcRow('Haines Index', period.haines);
-      }
-      if (period.lal) {
-        rows += swcRow('Lightning Activity', period.lal);
+      const FWF_ROW_DEFS = [
+        ['sky', 'Sky / Weather'],
+        ['maxTemp', 'Max Temperature', '\u00b0F'],
+        ['minTemp', 'Min Temperature', '\u00b0F'],
+        ['minHumidity', 'Min Humidity'],
+        ['maxHumidity', 'Max Humidity'],
+        ['winds20ft', '20-Foot Winds'],
+        ['transportWind', 'Transport Wind'],
+        ['mixingHeight', 'Mixing Height'],
+        ['ventilation', 'Ventilation'],
+        ['snowLevel', 'Snow Level'],
+        ['haines', 'Haines Index'],
+        ['lal', 'Lightning Activity']
+      ];
+      for (const [key, label, unit] of FWF_ROW_DEFS) {
+        if (period[key]) rows += swcFwfRow(label, period[key], unit, key === 'minHumidity');
       }
 
       html += `<div class="swc-section${collapsedClass}">
@@ -3264,6 +3260,29 @@ function renderFireIndices() {
 function swcRow(label, value, valueClass) {
   const cls = valueClass ? ' ' + valueClass : '';
   return `<div class="swc-row"><span class="swc-row-label">${label}</span><span class="swc-row-value${cls}">${value}</span></div>`;
+}
+
+// FWF field values come from parseFwfField: a string, or [{label,value}]
+// sub-parts (e.g. Valleys vs Ridges). Units only attach to numeric values.
+function swcFwfRow(label, val, unit, isMinRh) {
+  const fmt = v => escHtml(unit && /^\d/.test(v) ? v + unit : v);
+  const rhClass = v => {
+    const n = parseInt(v);
+    return isNaN(n) ? '' : n < 15 ? 'swc-val-danger' : n < 25 ? 'swc-val-warn' : 'swc-val-good';
+  };
+  if (typeof val === 'string') return swcRow(label, fmt(val), isMinRh ? rhClass(val) : '');
+  let html = `<div class="swc-row-group"><div class="swc-row"><span class="swc-row-label">${label}</span></div>`;
+  for (const p of val) {
+    const pl = escHtml(p.label.replace(/\blwr\b/i, 'lower').replace(/\bupr\b/i, 'upper'));
+    const cls = isMinRh ? rhClass(p.value) : '';
+    // ponytail: 32-char cutoff decides inline vs stacked; tune if a WFO wedges between
+    if (p.value.length <= 32) {
+      html += `<div class="swc-subrow"><span class="swc-subrow-label">${pl}</span><span class="swc-subrow-value${cls ? ' ' + cls : ''}">${fmt(p.value)}</span></div>`;
+    } else {
+      html += `<div class="swc-subrow"><span class="swc-subrow-label">${pl}</span></div><div class="swc-subrow-text">${fmt(p.value)}</div>`;
+    }
+  }
+  return html + `</div>`;
 }
 
 function degreesToCardinal(deg) {
