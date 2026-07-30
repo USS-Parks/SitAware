@@ -638,9 +638,10 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 12px;
+  padding: 9px 12px;
   border-bottom: 1px solid var(--surface-border);
   font-size: 12px;
+  line-height: 1.35;
 }
 .swc-row:last-child { border-bottom: none; }
 .swc-row-label {
@@ -658,23 +659,24 @@ html, body {
   margin-left: 8px;
 }
 /* FWF sub-labeled values (Valleys vs Ridges): indented under their field row */
-.swc-row-group { border-bottom: 1px solid var(--surface-border); padding-bottom: 5px; }
+.swc-row-group { border-bottom: 1px solid var(--surface-border); padding-bottom: 9px; }
 .swc-row-group:last-child { border-bottom: none; }
-.swc-row-group .swc-row { border-bottom: none; padding-bottom: 2px; }
+.swc-row-group .swc-row { border-bottom: none; padding-bottom: 3px; }
 .swc-subrow {
   display: flex;
   justify-content: space-between;
-  gap: 10px;
-  padding: 2px 12px 2px 26px;
+  gap: 12px;
+  padding: 4px 12px 4px 26px;
   font-size: 12px;
+  line-height: 1.35;
 }
 .swc-subrow-label { color: var(--text-muted); font-size: 11px; flex-shrink: 0; }
 .swc-subrow-value { color: var(--cream); font-weight: 500; text-align: right; min-width: 0; overflow-wrap: break-word; }
 .swc-subrow-text {
-  padding: 0 12px 4px 26px;
+  padding: 1px 12px 8px 26px;
   font-size: 12px;
   color: var(--cream);
-  line-height: 1.45;
+  line-height: 1.5;
 }
 .swc-row-trend {
   color: var(--text-dim);
